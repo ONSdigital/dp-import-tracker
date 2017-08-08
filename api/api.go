@@ -13,6 +13,8 @@ import (
 	"github.com/ONSdigital/go-ns/log"
 )
 
+var AuthToken string
+
 type Instance struct {
 	InstanceID                string `json:"instance_id"`
 	NumberOfObservations      int64  `json:"total_observations"`
@@ -223,7 +225,7 @@ func callImportAPI(client *http.Client, method, path string, attempts int, paylo
 		return nil, 0, err
 	}
 
-	req.Header.Set("Internal-token", "FD0108EA-825D-411C-9B1D-41EF7727F465")
+	req.Header.Set("Internal-token", AuthToken)
 	resp, err := client.Do(req)
 	if err != nil {
 		log.ErrorC("Failed to action ImportAPI", err, logData)

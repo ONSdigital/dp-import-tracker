@@ -19,6 +19,7 @@ type config struct {
 	ObservationsInsertedTopic string   `env:"IMPORT_OBSERVATIONS_INSERTED_TOPIC" flag:"observations-inserted-topic" flagDesc:"topic name for increment of inserted observations"`
 	Brokers                   []string `env:"KAFKA_ADDR", flag:"kafka-addr" flagDesc:"topic name for import file available events")`
 	ImportAddr                string   `env:"IMPORT_ADDR" flag:"import-addr" flagDesc:"The address of Import API"`
+	ImportAuthToken           string   `env:"IMPORT_AUTH_TOKEN" flag:"import-auth-token" flagDesc:"Authentication token for access to import API"`
 	DbSource                  string   `env:"DB_ACCESS", flag:"db" flagDesc:"Database access URL/config")`
 }
 
@@ -193,6 +194,7 @@ func main() {
 	if err := gofigure.Gofigure(&cfg); err != nil {
 		logFatal("gofigure failed", err, nil)
 	}
+	api.AuthToken = cfg.ImportAuthToken
 
 	log.Info("Starting", log.Data{
 		"new-import-topic":        cfg.NewInstanceTopic,
