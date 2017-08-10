@@ -13,8 +13,13 @@ import (
 	"github.com/ONSdigital/go-ns/log"
 )
 
-var AuthToken string
+// AuthToken is set by main()
+var (
+	AuthToken  string
+	maxRetries = 5
+)
 
+// Instance comes in results from the Import API
 type Instance struct {
 	InstanceID                string `json:"instance_id"`
 	NumberOfObservations      int64  `json:"total_observations"`
@@ -23,29 +28,29 @@ type Instance struct {
 	State                     string `json:"state"`
 }
 
+// InstanceRef identifies an instance by id and URL (from Import API)
 type InstanceRef struct {
 	InstanceID string `json:"id"`
 	Link       string `json:"link"`
 }
 
+// JobRef identifies an import job by id and URL (from Import API)
 type JobRef struct {
 	ID   string `json:"id"`
 	Link string `json:"link"`
 }
 
+// ImportJob comes from the Import API and links an import job to its (other) instances
 type ImportJob struct {
 	JobID     string        `json:"job_id"`
 	Instances []InstanceRef `json:"instances"`
 }
 
-var (
-	maxRetries = 5
-)
-
+// GetInstance asks the Import API for the details for instanceID
 func GetInstance(client *http.Client, importAPIURL string, instanceID string) (Instance, error) {
 	path := importAPIURL + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
-	jsonBody, httpCode, err := Get(client, path, 0, nil)
+	jsonBody, httpCode, err := get(client, path, 0, nil)
 	logData["httpCode"] = httpCode
 	if httpCode >= 300 {
 		err = errors.New("Bad response while getting import instance")
@@ -64,11 +69,12 @@ func GetInstance(client *http.Client, importAPIURL string, instanceID string) (I
 	return instance, nil
 }
 
+// GetInstances asks the Import API for all instances filtered by vars
 func GetInstances(client *http.Client, importAPIURL string, vars url.Values) ([]Instance, error) {
 	//return []Instance{}, nil // XXX TODO XXX
 	path := importAPIURL + "/instances"
 	logData := log.Data{"path": path}
-	jsonBody, httpCode, err := Get(client, path, 0, vars)
+	jsonBody, httpCode, err := get(client, path, 0, vars)
 	logData["httpCode"] = httpCode
 	if httpCode >= 300 {
 		err = errors.New("Bad response while getting import instance list")
@@ -88,10 +94,11 @@ func GetInstances(client *http.Client, importAPIURL string, vars url.Values) ([]
 	return instances, nil
 }
 
+// UpdateInstanceWithNewInserts tells the Import API of a number of observationsInserted for instanceID
 func UpdateInstanceWithNewInserts(client *http.Client, importAPIURL, instanceID string, observationsInserted int32) error {
 	path := importAPIURL + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"URL": path}
-	jsonBody, httpCode, err := Put(client, path, 0, nil)
+	jsonBody, httpCode, err := put(client, path, 0, nil)
 	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
 	if err != nil {
@@ -102,12 +109,13 @@ func UpdateInstanceWithNewInserts(client *http.Client, importAPIURL, instanceID 
 	return nil
 }
 
+// UpdateInstanceState tells the Import API that the state has changed of an Import instance
 func UpdateInstanceState(client *http.Client, importAPIURL, instanceID string, newState string) error {
 	path := importAPIURL + "/instances/" + instanceID
 	logData := log.Data{"URL": path}
 	jsonUpload := []byte(`{"instance_id":"` + instanceID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := Put(client, path, 0, jsonUpload)
+	jsonResult, httpCode, err := put(client, path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
 	if err != nil {
@@ -117,10 +125,11 @@ func UpdateInstanceState(client *http.Client, importAPIURL, instanceID string, n
 	return nil
 }
 
+// GetImportJob asks the Import API for the details for an Import job
 func GetImportJob(client *http.Client, importAPIURL string, importJobID string) (ImportJob, error) {
 	path := importAPIURL + "/jobs/" + importJobID
 	logData := log.Data{"path": path, "importJobID": importJobID}
-	jsonBody, httpCode, err := Get(client, path, 0, nil)
+	jsonBody, httpCode, err := get(client, path, 0, nil)
 	logData["httpCode"] = httpCode
 	if err == nil && httpCode >= 300 {
 		err = errors.New("Bad httpCode")
@@ -142,35 +151,13 @@ func GetImportJob(client *http.Client, importAPIURL string, importJobID string) 
 	return importJob, nil
 }
 
-/*
-func GetImportJobList(client *http.Client, importAPIURL string, vars url.Values) ([]ImportJob, error) {
-	path := importAPIURL + "/jobs"
-	logData := log.Data{"path": path}
-	jsonBody, httpCode, err := Get(client, path, 0, vars)
-	logData["httpCode"] = httpCode
-	if httpCode >= 300 {
-		err = errors.New("Bad response while getting import job list")
-	}
-	if err != nil {
-		log.ErrorC("Failed to get import job list", err, logData)
-		return nil, err
-	}
-	logData["jsonBody"] = jsonBody
-	var importJobs []ImportJob
-	if err := json.Unmarshal(jsonBody, &importJobs); err != nil {
-		log.ErrorC("Failed to parse json message", err, logData)
-		return nil, err
-	}
-	return importJobs, nil
-}
-*/
-
+// UpdateImportJobState tells the Import API that the state has changed of an Import job
 func UpdateImportJobState(client *http.Client, importAPIURL, jobID string, newState string) error {
 	path := importAPIURL + "/jobs/" + jobID
 	logData := log.Data{"URL": path}
 	jsonUpload := []byte(`{"job_id":"` + jobID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := Put(client, path, 0, jsonUpload)
+	jsonResult, httpCode, err := put(client, path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
 	if err != nil {
@@ -180,11 +167,11 @@ func UpdateImportJobState(client *http.Client, importAPIURL, jobID string, newSt
 	return nil
 }
 
-func Get(client *http.Client, path string, attempts int, vars url.Values) ([]byte, int, error) {
+func get(client *http.Client, path string, attempts int, vars url.Values) ([]byte, int, error) {
 	return callImportAPI(client, "GET", path, attempts, vars)
 }
 
-func Put(client *http.Client, path string, attempts int, payload []byte) ([]byte, int, error) {
+func put(client *http.Client, path string, attempts int, payload []byte) ([]byte, int, error) {
 	return callImportAPI(client, "PUT", path, attempts, payload)
 }
 
