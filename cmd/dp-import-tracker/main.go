@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -167,7 +166,7 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
 					log.Debug("import instance complete", log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
-
+					log.Error(errors.New("TODO check db for actual count(insertedObservations) now that instance appears to be completed (kafka-double-counting?)"), nil)
 					if err := api.UpdateInstanceState(client, importAPIURL, instanceID, "completed"); err != nil {
 						log.ErrorC("Failed to set import instance state=completed", err, log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
 					} else if err := CheckImportJobCompletionState(client, importAPIURL, trackedInstances[instanceID].jobID, instanceID); err != nil {
@@ -227,7 +226,6 @@ SUCCESS:
 		select {
 		case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
 			var newInstanceEvent inputFileAvailable
-			fmt.Printf("msg: %v (%s)", newInstanceMessage.GetData(), newInstanceMessage.GetData())
 			if err := schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 				log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 			} else {
