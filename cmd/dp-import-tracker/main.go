@@ -42,13 +42,13 @@ type trackedInstanceList map[string]trackedInstance
 var checkForCompleteInstancesTick = time.Millisecond * 2000
 
 // updateInstanceFromImportAPI updates a specific import instance with the current counts of expected/complete observations
-func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(client *http.Client, importAPIURL string, instanceID string) error {
-	instanceFromAPI, err := api.GetInstance(client, importAPIURL, instanceID)
+func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(api *api.ImportAPI, instanceID string) error {
+	instanceFromAPI, err := api.GetInstance(instanceID)
 	if err != nil {
 		return err
 	}
 	if instanceFromAPI.InstanceID == "" {
-		log.Debug("No such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
+		log.Debug("no such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
 		delete(trackedInstances, instanceID)
 		return nil
 	}
@@ -61,6 +61,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(client *
 	if observationsInsertedCount := instanceFromAPI.TotalInsertedObservations; observationsInsertedCount > 0 && observationsInsertedCount != trackedInstances[instanceID].observationsInsertedCount {
 		tempCopy.observationsInsertedCount = observationsInsertedCount
 	}
+	// update jobID (should only 'change' once, on first update after initial creation of the instance - which has no jobID)
 	if importID := instanceFromAPI.Job.ID; importID != trackedInstances[instanceID].jobID {
 		tempCopy.jobID = importID
 	}
@@ -69,8 +70,8 @@ func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(client *
 }
 
 // getInstanceListFromImportAPI gets a list of current import Instances, to seed our in-memory list
-func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(client *http.Client, importAPIURL string) error {
-	instancesFromAPI, err := api.GetInstances(client, importAPIURL, url.Values{"instance_states": []string{"created"}})
+func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(api *api.ImportAPI) error {
+	instancesFromAPI, err := api.GetInstances(url.Values{"instance_states": []string{"created"}})
 	if err != nil {
 		return err
 	}
@@ -87,8 +88,8 @@ func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(client 
 }
 
 // CheckImportJobCompletionState checks all instances for given import job - if all completed, mark import as completed
-func CheckImportJobCompletionState(client *http.Client, importAPIURL string, jobID, completedInstanceID string) error {
-	importJobFromAPI, err := api.GetImportJob(client, importAPIURL, jobID)
+func CheckImportJobCompletionState(api *api.ImportAPI, jobID, completedInstanceID string) error {
+	importJobFromAPI, err := api.GetImportJob(jobID)
 	if err != nil {
 		return err
 	}
@@ -99,12 +100,12 @@ func CheckImportJobCompletionState(client *http.Client, importAPIURL string, job
 
 	targetState := "completed"
 	log.Debug("checking", log.Data{"API insts": importJobFromAPI.Instances})
-	for _, instance := range importJobFromAPI.Instances {
-		if instance.InstanceID == completedInstanceID {
+	for _, instanceRef := range importJobFromAPI.Instances {
+		if instanceRef.ID == completedInstanceID {
 			continue
 		}
 		// XXX TODO code below largely untested, and possibly subject to race conditions
-		instanceFromAPI, err := api.GetInstance(client, importAPIURL, instance.InstanceID)
+		instanceFromAPI, err := api.GetInstance(instanceRef.ID)
 		if err != nil {
 			return err
 		}
@@ -116,25 +117,25 @@ func CheckImportJobCompletionState(client *http.Client, importAPIURL string, job
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
-	if err := api.UpdateImportJobState(client, importAPIURL, jobID, targetState); err != nil {
-		log.ErrorC("Failed to set import job state=completed", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
+	if err := api.UpdateImportJobState(jobID, targetState); err != nil {
+		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return nil
 }
 
 // updateInstanceWithObservationsInserted updates a specific import instance with the counts of inserted observations
-func updateInstanceWithObservationsInserted(client *http.Client, importAPIURL string, instanceID string, observationsInserted int32) error {
-	if err := api.UpdateInstanceWithNewInserts(client, importAPIURL, instanceID, observationsInserted); err != nil {
+func updateInstanceWithObservationsInserted(api *api.ImportAPI, instanceID string, observationsInserted int32) error {
+	if err := api.UpdateInstanceWithNewInserts(instanceID, observationsInserted); err != nil {
 		return err
 	}
 	return nil
 }
 
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
-func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent, importAPIURL string, client *http.Client) {
+func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent, api *api.ImportAPI) {
 	trackedInstances := make(trackedInstanceList)
-	if err := trackedInstances.getInstanceListFromImportAPI(client, importAPIURL); err != nil {
-		logFatal("Could not obtain initial instance list", err, nil)
+	if err := trackedInstances.getInstanceListFromImportAPI(api); err != nil {
+		logFatal("could not obtain initial instance list", err, nil)
 	}
 
 	checkForCompletedInstancesChan := make(chan bool)
@@ -149,26 +150,26 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 		case newInstanceMsg := <-createInstanceChan:
 			if _, ok := trackedInstances[newInstanceMsg]; ok {
 				log.Error(errors.New("import instance exists"), log.Data{"instanceID": newInstanceMsg})
-			} else {
-				log.Debug("new import instance", log.Data{"instanceID": newInstanceMsg})
-				trackedInstances[newInstanceMsg] = trackedInstance{
-					totalObservations:         -1,
-					observationsInsertedCount: 0,
-				}
+				continue
+			}
+			log.Debug("new import instance", log.Data{"instanceID": newInstanceMsg})
+			trackedInstances[newInstanceMsg] = trackedInstance{
+				totalObservations:         -1,
+				observationsInsertedCount: 0,
 			}
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
 			instanceID := updateObservationsInserted.InstanceID
 			if _, ok := trackedInstances[instanceID]; !ok {
-				log.Info("Warning: import instance not in tracked list for update", log.Data{"update": updateObservationsInserted})
+				log.Info("warning: import instance not in tracked list for update", log.Data{"update": updateObservationsInserted})
 			}
 			log.Debug("updating import instance", log.Data{"update": updateObservationsInserted})
-			if err := updateInstanceWithObservationsInserted(client, importAPIURL, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
+			if err := updateInstanceWithObservationsInserted(api, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
 				log.ErrorC("failed to add inserts to instance", err, log.Data{"update": updateObservationsInserted})
 			}
 		case <-checkForCompletedInstancesChan:
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
-				if err := trackedInstances.updateInstanceFromImportAPI(client, importAPIURL, instanceID); err != nil {
+				if err := trackedInstances.updateInstanceFromImportAPI(api, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID})
 
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
@@ -176,10 +177,10 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 					// and that inserts have exceeded the expected
 					log.Debug("import instance complete", log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
 					log.Error(errors.New("TODO check db for actual count(insertedObservations) now that instance appears to be completed (kafka-double-counting?)"), nil)
-					if err := api.UpdateInstanceState(client, importAPIURL, instanceID, "completed"); err != nil {
-						log.ErrorC("Failed to set import instance state=completed", err, log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
-					} else if err := CheckImportJobCompletionState(client, importAPIURL, trackedInstances[instanceID].jobID, instanceID); err != nil {
-						log.ErrorC("Failed to check import job when instance completed", err, log.Data{"instanceID": instanceID, "jobID": trackedInstances[instanceID].jobID})
+					if err := api.UpdateInstanceState(instanceID, "completed"); err != nil {
+						log.ErrorC("failed to set import instance state=completed", err, log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
+					} else if err := CheckImportJobCompletionState(api, trackedInstances[instanceID].jobID, instanceID); err != nil {
+						log.ErrorC("failed to check import job when instance completed", err, log.Data{"instanceID": instanceID, "jobID": trackedInstances[instanceID].jobID})
 					} else {
 						// no errors, so stop tracking the completed instance
 						delete(trackedInstances, instanceID)
@@ -191,6 +192,7 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 	}
 }
 
+// logFatal is a utility method for a common failure pattern in main()
 func logFatal(context string, err error, data log.Data) {
 	log.ErrorC(context, err, data)
 	panic(err)
@@ -210,24 +212,29 @@ func main() {
 	}
 	api.AuthToken = cfg.ImportAuthToken
 
-	log.Info("Starting", log.Data{
+	log.Info("starting", log.Data{
 		"new-import-topic":        cfg.NewInstanceTopic,
 		"completed-inserts-topic": cfg.ObservationsInsertedTopic,
 		"import-api":              cfg.ImportAddr,
 	})
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(cfg.Brokers, cfg.NewInstanceTopic, log.Namespace, kafka.OffsetNewest)
 	if err != nil {
-		logFatal("Could not obtain consumer", err, nil)
+		logFatal("could not obtain consumer", err, nil)
 	}
 	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(cfg.Brokers, cfg.ObservationsInsertedTopic, log.Namespace, kafka.OffsetNewest)
 	if err != nil {
-		logFatal("Could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
+		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
 	client := &http.Client{}
+	api, err := api.New(client, cfg.ImportAddr)
+	if err != nil {
+		logFatal("could not obtain API instance", err, nil)
+	}
+
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
-	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, cfg.ImportAddr, client)
+	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, api)
 
 	// loop over consumers/producer(error) messages
 SUCCESS:
@@ -242,7 +249,7 @@ SUCCESS:
 			}
 			newInstanceMessage.Commit()
 		case newImportConsumerErrorMessage := <-newInstanceEventConsumer.Errors():
-			log.Error(errors.New("Aborting after consumer error"), log.Data{"error": newImportConsumerErrorMessage, "topic": cfg.NewInstanceTopic})
+			log.Error(errors.New("aborting after consumer error"), log.Data{"error": newImportConsumerErrorMessage, "topic": cfg.NewInstanceTopic})
 			break SUCCESS
 		case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 			var insertedUpdate insertedObservationsEvent
@@ -253,7 +260,7 @@ SUCCESS:
 			}
 			insertedMessage.Commit()
 		case insertedObservationsErrorMessage := <-observationsInsertedEventConsumer.Errors():
-			log.Error(errors.New("Aborting after consumer error"), log.Data{"error": insertedObservationsErrorMessage, "topic": cfg.ObservationsInsertedTopic})
+			log.Error(errors.New("aborting after consumer error"), log.Data{"error": insertedObservationsErrorMessage, "topic": cfg.ObservationsInsertedTopic})
 			break SUCCESS
 		}
 	}
@@ -261,5 +268,5 @@ SUCCESS:
 	// assert: only get here when we have an error, which has been logged
 	observationsInsertedEventConsumer.Closer() <- true
 	newInstanceEventConsumer.Closer() <- true
-	panic("Aborting after error")
+	logFatal("", errors.New("aborting after error"), nil)
 }
