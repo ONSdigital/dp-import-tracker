@@ -3,7 +3,7 @@ SHELL=bash
 
 BUILD=build
 BUILD_ARCH=$(BUILD)/$(GOOS)-$(GOARCH)
-BIN_DIR?=.
+BIN_DIR?=bin
 
 export GOOS?=$(shell go env GOOS)
 export GOARCH?=$(shell go env GOARCH)
