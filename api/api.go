@@ -52,18 +52,21 @@ func GetInstance(client *http.Client, importAPIURL string, instanceID string) (I
 	logData := log.Data{"path": path, "instanceID": instanceID}
 	jsonBody, httpCode, err := get(client, path, 0, nil)
 	logData["httpCode"] = httpCode
-	if httpCode >= 300 {
+	if httpCode == http.StatusNotFound {
+		return Instance{}, nil
+	}
+	if err == nil && httpCode != http.StatusOK {
 		err = errors.New("Bad response while getting import instance")
 	}
 	if err != nil {
-		log.ErrorC("Failed to get import instance", err, logData)
+		log.ErrorC("GetInstance get", err, logData)
 		return Instance{}, err
 	}
 	logData["jsonBody"] = jsonBody
 
 	var instance Instance
 	if err := json.Unmarshal(jsonBody, &instance); err != nil {
-		log.ErrorC("Failed to parse json message", err, logData)
+		log.ErrorC("GetInstance unmarshall", err, logData)
 		return Instance{}, err
 	}
 	return instance, nil
@@ -71,24 +74,22 @@ func GetInstance(client *http.Client, importAPIURL string, instanceID string) (I
 
 // GetInstances asks the Import API for all instances filtered by vars
 func GetInstances(client *http.Client, importAPIURL string, vars url.Values) ([]Instance, error) {
-	//return []Instance{}, nil // XXX TODO XXX
 	path := importAPIURL + "/instances"
 	logData := log.Data{"path": path}
 	jsonBody, httpCode, err := get(client, path, 0, vars)
 	logData["httpCode"] = httpCode
-	if httpCode >= 300 {
-		err = errors.New("Bad response while getting import instance list")
+	if err == nil && httpCode != http.StatusOK {
+		err = errors.New("Bad response while getting import instances")
 	}
 	if err != nil {
-		log.ErrorC("Failed to get import instance list", err, logData)
-		log.Error(err, logData)
+		log.ErrorC("GetInstances get", err, logData)
 		return nil, err
 	}
 	logData["jsonBody"] = jsonBody
 
 	var instances []Instance
 	if err := json.Unmarshal(jsonBody, &instances); err != nil {
-		log.ErrorC("Failed to parse json message", err, logData)
+		log.ErrorC("GetInstances Unmarshal", err, logData)
 		return nil, err
 	}
 	return instances, nil
@@ -101,11 +102,13 @@ func UpdateInstanceWithNewInserts(client *http.Client, importAPIURL, instanceID 
 	jsonBody, httpCode, err := put(client, path, 0, nil)
 	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
+	if err == nil && httpCode != http.StatusOK {
+		err = errors.New("Bad response while updating inserts for job")
+	}
 	if err != nil {
-		log.ErrorC("Failed to PUT import instance", err, logData)
+		log.ErrorC("UpdateInstanceWithNewInserts err", err, logData)
 		return err
 	}
-	log.Info("ook", logData)
 	return nil
 }
 
@@ -118,8 +121,11 @@ func UpdateInstanceState(client *http.Client, importAPIURL, instanceID string, n
 	jsonResult, httpCode, err := put(client, path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
+	if err == nil && httpCode != http.StatusOK {
+		err = errors.New("Bad response while updating instance state")
+	}
 	if err != nil {
-		log.ErrorC("Failed to PUT instance state", err, logData)
+		log.ErrorC("UpdateInstanceState", err, logData)
 		return err
 	}
 	return nil
@@ -130,23 +136,24 @@ func GetImportJob(client *http.Client, importAPIURL string, importJobID string) 
 	path := importAPIURL + "/jobs/" + importJobID
 	logData := log.Data{"path": path, "importJobID": importJobID}
 	jsonBody, httpCode, err := get(client, path, 0, nil)
+	if httpCode == http.StatusNotFound {
+		return ImportJob{}, nil
+	}
 	logData["httpCode"] = httpCode
-	if err == nil && httpCode >= 300 {
-		err = errors.New("Bad httpCode")
+	if err == nil && httpCode != http.StatusOK {
+		err = errors.New("Bad response while getting import job")
 	}
 	if err != nil {
-		log.ErrorC("Failed to get import job", err, logData)
+		log.ErrorC("GetImportJob", err, logData)
 		return ImportJob{}, err
 	}
 	logData["jsonBody"] = string(jsonBody)
 
 	var importJob ImportJob
 	if err := json.Unmarshal(jsonBody, &importJob); err != nil {
-		log.ErrorC("Failed to parse json message", err, logData)
+		log.ErrorC("GetImportJob unmarshall", err, logData)
 		return ImportJob{}, err
 	}
-	logData["importJob"] = importJob
-	log.Debug("get import job", logData)
 
 	return importJob, nil
 }
@@ -160,8 +167,11 @@ func UpdateImportJobState(client *http.Client, importAPIURL, jobID string, newSt
 	jsonResult, httpCode, err := put(client, path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
+	if err == nil && httpCode != http.StatusOK {
+		err = errors.New("Bad HTTP response")
+	}
 	if err != nil {
-		log.ErrorC("Failed to PUT import job state", err, logData)
+		log.ErrorC("UpdateImportJobState", err, logData)
 		return err
 	}
 	return nil
