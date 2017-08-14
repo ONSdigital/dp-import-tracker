@@ -9,11 +9,11 @@ image_resource:
     tag: 1.8.3
 
 inputs:
-  name: dp-import-tracker
-  path: go/src/github.com/ONSdigital/dp-import-tracker
+  - name: dp-import-tracker
+    path: go/src/github.com/ONSdigital/dp-import-tracker
 
 outputs:
-  name: build
+  - name: build
 
 run:
   path: go/src/github.com/ONSdigital/dp-import-tracker/ci/scripts/build.sh
