@@ -47,6 +47,11 @@ func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(client *
 	if err != nil {
 		return err
 	}
+	if instanceFromAPI.InstanceID == "" {
+		log.Debug("No such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
+		delete(trackedInstances, instanceID)
+		return nil
+	}
 
 	tempCopy := trackedInstances[instanceID]
 
@@ -86,6 +91,10 @@ func CheckImportJobCompletionState(client *http.Client, importAPIURL string, job
 	importJobFromAPI, err := api.GetImportJob(client, importAPIURL, jobID)
 	if err != nil {
 		return err
+	}
+	// check for 404 not found (empty importJobFromAPI)
+	if importJobFromAPI.JobID == "" {
+		return errors.New("API did not recognise jobID")
 	}
 
 	targetState := "completed"
