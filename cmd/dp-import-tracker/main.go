@@ -227,10 +227,7 @@ func main() {
 	}
 
 	client := &http.Client{}
-	api, err := api.New(client, cfg.ImportAddr)
-	if err != nil {
-		logFatal("could not obtain API instance", err, nil)
-	}
+	api := api.New(client, cfg.ImportAddr)
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)

@@ -48,12 +48,12 @@ type IDLink struct {
 }
 
 // New creates an ImportAPI object
-func New(client *http.Client, importAPIURL string) (*ImportAPI, error) {
+func New(client *http.Client, importAPIURL string) *ImportAPI {
 	return &ImportAPI{
 		Client:     client,
 		URL:        importAPIURL,
 		MaxRetries: maxRetries,
-	}, nil
+	}
 }
 
 // GetInstance asks the Import API for the details for instanceID
