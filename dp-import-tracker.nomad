@@ -10,21 +10,22 @@ job "dp-import-tracker" {
   }
 
   group "publishing" {
-    count = {{PUBLISHING_TASK_COUNT}}
+    count = "{{PUBLISHING_TASK_COUNT}}"
 
     task "dp-import-tracker" {
       driver = "exec"
 
       artifact {
-        source = "s3::https://s3-eu-west-1.amazonaws.com/ons-dp-deployments/dp-import-tracker/latest.tar.gz"
+        source = "s3::https://s3-eu-west-1.amazonaws.com/{{BUILD_BUCKET}}/dp-import-tracker/{{REVISION}}.tar.gz"
+      }
+
+      artifact {
+        source = "s3::https://s3-eu-west-1.amazonaws.com/{{DEPLOYMENT_BUCKET}}/dp-import-tracker/{{REVISION}}.tar.gz"
       }
 
       config {
         command = "${NOMAD_TASK_DIR}/start-task"
-
-         args = [
-                  "${NOMAD_TASK_DIR}/dp-import-tracker",
-                ]
+        args    = ["${NOMAD_TASK_DIR}/dp-import-tracker"]
       }
 
       service {
