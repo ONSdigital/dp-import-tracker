@@ -10,15 +10,15 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/schema"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
-	"github.com/ian-kent/gofigure"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type config struct {
-	NewInstanceTopic          string   `env:"INPUT_FILE_AVAILABLE_TOPIC" flag:"input-file-available-topic" flagDesc:"topic name for import file available events"`
-	ObservationsInsertedTopic string   `env:"IMPORT_OBSERVATIONS_INSERTED_TOPIC" flag:"observations-inserted-topic" flagDesc:"topic name for increment of inserted observations"`
-	Brokers                   []string `env:"KAFKA_ADDR" flag:"kafka-addr" flagDesc:"topic name for import file available events"`
-	ImportAddr                string   `env:"IMPORT_ADDR" flag:"import-addr" flagDesc:"The address of Import API"`
-	ImportAuthToken           string   `env:"IMPORT_AUTH_TOKEN" flag:"import-auth-token" flagDesc:"Authentication token for access to import API"`
+	NewInstanceTopic          string   `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
+	ObservationsInsertedTopic string   `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
+	Brokers                   []string `envconfig:"KAFKA_ADDR"`
+	ImportAddr                string   `envconfig:"IMPORT_ADDR"`
+	ImportAuthToken           string   `envconfig:"IMPORT_AUTH_TOKEN"`
 }
 
 type inputFileAvailable struct {
@@ -207,7 +207,7 @@ func main() {
 		Brokers:                   []string{"localhost:9092"},
 		ImportAddr:                "http://localhost:21800",
 	}
-	if err := gofigure.Gofigure(&cfg); err != nil {
+	if err := envconfig.Process("", &cfg); err != nil {
 		logFatal("gofigure failed", err, nil)
 	}
 	api.AuthToken = cfg.ImportAuthToken
