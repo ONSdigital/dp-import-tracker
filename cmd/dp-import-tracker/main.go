@@ -17,8 +17,10 @@ type config struct {
 	NewInstanceTopic          string   `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
 	ObservationsInsertedTopic string   `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
 	Brokers                   []string `envconfig:"KAFKA_ADDR"`
-	ImportAddr                string   `envconfig:"IMPORT_ADDR"`
-	ImportAuthToken           string   `envconfig:"IMPORT_AUTH_TOKEN"`
+	ImportAPIAddr             string   `envconfig:"IMPORT_API_ADDR"`
+	ImportAPIAuthToken        string   `envconfig:"IMPORT_API_AUTH_TOKEN"`
+	DatasetAPIAddr            string   `envconfig:"DATASET_API_ADDR"`
+	DatasetAPIAuthToken       string   `envconfig:"DATASET_API_AUTH_TOKEN"`
 }
 
 type inputFileAvailable struct {
@@ -41,9 +43,9 @@ type trackedInstanceList map[string]trackedInstance
 
 var checkForCompleteInstancesTick = time.Millisecond * 2000
 
-// updateInstanceFromImportAPI updates a specific import instance with the current counts of expected/complete observations
-func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(api *api.ImportAPI, instanceID string) error {
-	instanceFromAPI, err := api.GetInstance(instanceID)
+// updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
+func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(datasetAPI *api.DatasetAPI, instanceID string) error {
+	instanceFromAPI, err := datasetAPI.GetInstance(instanceID)
 	if err != nil {
 		return err
 	}
@@ -70,12 +72,12 @@ func (trackedInstances trackedInstanceList) updateInstanceFromImportAPI(api *api
 }
 
 // getInstanceListFromImportAPI gets a list of current import Instances, to seed our in-memory list
-func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(api *api.ImportAPI) error {
-	instancesFromAPI, err := api.GetInstances(url.Values{"instance_states": []string{"created"}})
+func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(datasetAPI *api.DatasetAPI) error {
+	instancesFromAPI, err := datasetAPI.GetInstances(url.Values{"instance_states": []string{"created"}})
 	if err != nil {
 		return err
 	}
-	log.Debug("instances", log.Data{"api": instancesFromAPI})
+	log.Debug("instances", log.Data{"datasetAPI": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 		instanceID := instance.InstanceID
 		trackedInstances[instanceID] = trackedInstance{
@@ -88,8 +90,8 @@ func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(api *ap
 }
 
 // CheckImportJobCompletionState checks all instances for given import job - if all completed, mark import as completed
-func CheckImportJobCompletionState(api *api.ImportAPI, jobID, completedInstanceID string) error {
-	importJobFromAPI, err := api.GetImportJob(jobID)
+func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.DatasetAPI, jobID, completedInstanceID string) error {
+	importJobFromAPI, err := importAPI.GetImportJob(jobID)
 	if err != nil {
 		return err
 	}
@@ -105,7 +107,7 @@ func CheckImportJobCompletionState(api *api.ImportAPI, jobID, completedInstanceI
 			continue
 		}
 		// XXX TODO code below largely untested, and possibly subject to race conditions
-		instanceFromAPI, err := api.GetInstance(instanceRef.ID)
+		instanceFromAPI, err := datasetAPI.GetInstance(instanceRef.ID)
 		if err != nil {
 			return err
 		}
@@ -117,24 +119,29 @@ func CheckImportJobCompletionState(api *api.ImportAPI, jobID, completedInstanceI
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
-	if err := api.UpdateImportJobState(jobID, targetState); err != nil {
+	if err := importAPI.UpdateImportJobState(jobID, targetState); err != nil {
 		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return nil
 }
 
 // updateInstanceWithObservationsInserted updates a specific import instance with the counts of inserted observations
-func updateInstanceWithObservationsInserted(api *api.ImportAPI, instanceID string, observationsInserted int32) error {
-	if err := api.UpdateInstanceWithNewInserts(instanceID, observationsInserted); err != nil {
+func updateInstanceWithObservationsInserted(datasetAPI *api.DatasetAPI, instanceID string, observationsInserted int32) error {
+	if err := datasetAPI.UpdateInstanceWithNewInserts(instanceID, observationsInserted); err != nil {
 		return err
 	}
 	return nil
 }
 
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
-func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent, api *api.ImportAPI) {
+func manageActiveInstanceEvents(
+	createInstanceChan chan string,
+	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
+	datasetAPI *api.DatasetAPI,
+	importAPI *api.ImportAPI) {
+
 	trackedInstances := make(trackedInstanceList)
-	if err := trackedInstances.getInstanceListFromImportAPI(api); err != nil {
+	if err := trackedInstances.getInstanceListFromImportAPI(datasetAPI); err != nil {
 		logFatal("could not obtain initial instance list", err, nil)
 	}
 
@@ -163,13 +170,13 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 				log.Info("warning: import instance not in tracked list for update", log.Data{"update": updateObservationsInserted})
 			}
 			log.Debug("updating import instance", log.Data{"update": updateObservationsInserted})
-			if err := updateInstanceWithObservationsInserted(api, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
+			if err := updateInstanceWithObservationsInserted(datasetAPI, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
 				log.ErrorC("failed to add inserts to instance", err, log.Data{"update": updateObservationsInserted})
 			}
 		case <-checkForCompletedInstancesChan:
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
-				if err := trackedInstances.updateInstanceFromImportAPI(api, instanceID); err != nil {
+				if err := trackedInstances.updateInstanceFromDatasetAPI(datasetAPI, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID})
 
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
@@ -177,9 +184,9 @@ func manageActiveInstanceEvents(createInstanceChan chan string, updateInstanceWi
 					// and that inserts have exceeded the expected
 					log.Debug("import instance complete", log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
 					log.Error(errors.New("TODO check db for actual count(insertedObservations) now that instance appears to be completed (kafka-double-counting?)"), nil)
-					if err := api.UpdateInstanceState(instanceID, "completed"); err != nil {
+					if err := datasetAPI.UpdateInstanceState(instanceID, "completed"); err != nil {
 						log.ErrorC("failed to set import instance state=completed", err, log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
-					} else if err := CheckImportJobCompletionState(api, trackedInstances[instanceID].jobID, instanceID); err != nil {
+					} else if err := CheckImportJobCompletionState(importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
 						log.ErrorC("failed to check import job when instance completed", err, log.Data{"instanceID": instanceID, "jobID": trackedInstances[instanceID].jobID})
 					} else {
 						// no errors, so stop tracking the completed instance
@@ -205,17 +212,18 @@ func main() {
 		NewInstanceTopic:          "input-file-available",
 		ObservationsInsertedTopic: "import-observations-inserted",
 		Brokers:                   []string{"localhost:9092"},
-		ImportAddr:                "http://localhost:21800",
+		ImportAPIAddr:             "http://localhost:21800",
+		DatasetAPIAddr:            "http://localhost:22000",
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		logFatal("gofigure failed", err, nil)
 	}
-	api.AuthToken = cfg.ImportAuthToken
 
 	log.Info("starting", log.Data{
 		"new-import-topic":        cfg.NewInstanceTopic,
 		"completed-inserts-topic": cfg.ObservationsInsertedTopic,
-		"import-api":              cfg.ImportAddr,
+		"import-api":              cfg.ImportAPIAddr,
+		"dataset-api":             cfg.DatasetAPIAddr,
 	})
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(cfg.Brokers, cfg.NewInstanceTopic, log.Namespace, kafka.OffsetNewest)
 	if err != nil {
@@ -227,11 +235,12 @@ func main() {
 	}
 
 	client := &http.Client{}
-	api := api.New(client, cfg.ImportAddr)
+	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
+	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
-	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, api)
+	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI)
 
 	// loop over consumers/producer(error) messages
 SUCCESS:

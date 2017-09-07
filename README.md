@@ -4,14 +4,14 @@ DP Import Tracker
 Check for completed import instances, and mark them (and possibly
 their associated/parent import job) as completed.
 
-* At startup, ask the Import API for the list of active jobs.
+* At startup, ask the Dataset API for the list of active instances.
 
 * Add to the above in-memory list when `INPUT_FILE_AVAILABLE_TOPIC` events arrive.
 
 * Also, listen for `IMPORT_OBSERVATIONS_INSERTED_TOPIC` events,
-and inform the Import API with those additional numbers of inserted observations.
+and inform the Dataset API with those additional numbers of inserted observations.
 
-* Regularly check the [Import API](../dp-import-api) for the total number of observations,
+* Regularly check the [Dataset API](../dp-import-api) for the total number of observations,
 and the current count of inserted observations.  When the total has been
 inserted, mark the **status** of the instance as `completed` (and similar
 for the parent import job, if all other instances are also `completed`).
@@ -23,7 +23,7 @@ for the parent import job, if all other instances are also `completed`).
 
 ### Getting started
 
-See the [Import API](../dp-import-api) for setting up kafka/postgres.
+`make debug`
 
 ### Configuration
 
@@ -32,8 +32,10 @@ See the [Import API](../dp-import-api) for setting up kafka/postgres.
 | INPUT_FILE_AVAILABLE_TOPIC            | `input-file-available`                        | topic name for import file available events
 | IMPORT_OBSERVATIONS_INSERTED_TOPIC    | `import-observations-inserted`                | topic name for numbers of inserted observations
 | KAFKA_ADDR                            | `localhost:9092`                              | A list of kafka brokers
-| IMPORT_ADDR                           | `http://localhost:21800`                      | The address of Import API
-| IMPORT_AUTH_TOKEN                     | _no default_                                  | Authentication token for access to import API
+| IMPORT_API_ADDR                       | `http://localhost:21800`                      | The address of Import API
+| IMPORT_API_AUTH_TOKEN                 | _no default_                                  | Authentication token for access to import API
+| DATASET_API_ADDR                      | `http://localhost:22000`                      | The address of Dataset API
+| DATASET_API_AUTH_TOKEN                | _no default_                                  | Authentication token for access to Dataset API
 | DB_ACCESS                             | `user=dp dbname=ImportJobs sslmode=disable`   | URL for Postgresql
 
 ### Contributing
