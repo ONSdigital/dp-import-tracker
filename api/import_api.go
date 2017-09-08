@@ -8,11 +8,11 @@ import (
 	"net/url"
 )
 
-// ImportAPI aggregates a client and URL and other common data for accessing the API
+// ImportAPI aggregates a client and url and other common data for accessing the API
 type ImportAPI struct {
-	Client    *http.Client
-	URL       string
-	AuthToken string
+	client    *http.Client
+	url       string
+	authToken string
 }
 
 // ImportJob comes from the Import API and links an import job to its (other) instances
@@ -21,7 +21,7 @@ type ImportJob struct {
 	Instances []InstanceLink `json:"instances"`
 }
 
-// InstanceLink identifies an (instance or import-job) by id and URL (from Import API)
+// InstanceLink identifies an (instance or import-job) by id and url (from Import API)
 type InstanceLink struct {
 	ID   string `json:"id"`
 	Link string `json:"link"`
@@ -30,15 +30,15 @@ type InstanceLink struct {
 // NewImportAPI creates an ImportAPI object
 func NewImportAPI(client *http.Client, url, authToken string) *ImportAPI {
 	return &ImportAPI{
-		Client:    client,
-		URL:       url,
-		AuthToken: authToken,
+		client:    client,
+		url:       url,
+		authToken: authToken,
 	}
 }
 
 // GetImportJob asks the Import API for the details for an Import job
 func (api *ImportAPI) GetImportJob(importJobID string) (ImportJob, error) {
-	path := api.URL + "/jobs/" + importJobID
+	path := api.url + "/jobs/" + importJobID
 	logData := log.Data{"path": path, "importJobID": importJobID}
 	jsonBody, httpCode, err := api.get(path, 0, nil)
 	if httpCode == http.StatusNotFound {
@@ -65,8 +65,8 @@ func (api *ImportAPI) GetImportJob(importJobID string) (ImportJob, error) {
 
 // UpdateImportJobState tells the Import API that the state has changed of an Import job
 func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error {
-	path := api.URL + "/jobs/" + jobID
-	logData := log.Data{"URL": path}
+	path := api.url + "/jobs/" + jobID
+	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"job_id":"` + jobID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonResult, httpCode, err := api.put(path, 0, jsonUpload)
@@ -83,9 +83,9 @@ func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error 
 }
 
 func (api *ImportAPI) get(path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.Client, "GET", path, api.AuthToken, maxRetries, attempts, vars)
+	return callAPI(api.client, "GET", path, api.authToken, maxRetries, attempts, vars)
 }
 
 func (api *ImportAPI) put(path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(api.Client, "PUT", path, api.AuthToken, maxRetries, attempts, payload)
+	return callAPI(api.client, "PUT", path, api.authToken, maxRetries, attempts, payload)
 }

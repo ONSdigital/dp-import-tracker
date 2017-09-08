@@ -9,19 +9,19 @@ import (
 	"strconv"
 )
 
-// DatasetAPI aggregates a client and URL and other common data for accessing the API
+// DatasetAPI aggregates a client and url and other common data for accessing the API
 type DatasetAPI struct {
-	Client    *http.Client
-	URL       string
-	AuthToken string
+	client    *http.Client
+	url       string
+	authToken string
 }
 
 // NewDatasetAPI creates an DatasetAPI object
 func NewDatasetAPI(client *http.Client, url string, authToken string) *DatasetAPI {
 	return &DatasetAPI{
-		Client:    client,
-		URL:       url,
-		AuthToken: authToken,
+		client:    client,
+		url:       url,
+		authToken: authToken,
 	}
 }
 
@@ -52,7 +52,7 @@ type JobLinks struct {
 
 // GetInstance asks the Dataset API for the details for instanceID
 func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
-	path := api.URL + "/instances/" + instanceID
+	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
 	jsonBody, httpCode, err := api.get(path, 0, nil)
 	logData["httpCode"] = httpCode
@@ -78,7 +78,7 @@ func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
 
 // GetInstances asks the Dataset API for all instances filtered by vars
 func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
-	path := api.URL + "/instances"
+	path := api.url + "/instances"
 	logData := log.Data{"path": path}
 	jsonBody, httpCode, err := api.get(path, 0, vars)
 	logData["httpCode"] = httpCode
@@ -101,8 +101,8 @@ func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
 
 // UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(instanceID string, observationsInserted int32) error {
-	path := api.URL + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
-	logData := log.Data{"URL": path}
+	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
+	logData := log.Data{"url": path}
 	jsonBody, httpCode, err := api.put(path, 0, nil)
 	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
@@ -118,8 +118,8 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(instanceID string, observati
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
 func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) error {
-	path := api.URL + "/instances/" + instanceID
-	logData := log.Data{"URL": path}
+	path := api.url + "/instances/" + instanceID
+	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"instance_id":"` + instanceID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonResult, httpCode, err := api.put(path, 0, jsonUpload)
@@ -136,9 +136,9 @@ func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) e
 }
 
 func (api *DatasetAPI) get(path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.Client, "GET", path, api.AuthToken, maxRetries, attempts, vars)
+	return callAPI(api.client, "GET", path, api.authToken, maxRetries, attempts, vars)
 }
 
 func (api *DatasetAPI) put(path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(api.Client, "PUT", path, api.AuthToken, maxRetries, attempts, payload)
+	return callAPI(api.client, "PUT", path, api.authToken, maxRetries, attempts, payload)
 }

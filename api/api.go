@@ -20,16 +20,16 @@ func callAPI(
 	maxRetries, attempts int,
 	payload interface{}) ([]byte, int, error) {
 
-	logData := log.Data{"URL": path, "method": method, "attempts": attempts}
+	logData := log.Data{"url": path, "method": method, "attempts": attempts}
 
 	if attempts == 0 {
 		URL, err := url.Parse(path)
 		if err != nil {
-			log.ErrorC("Failed to create URL for ImportAPI call", err, logData)
+			log.ErrorC("Failed to create url for ImportAPI call", err, logData)
 			return nil, 0, err
 		}
 		path = URL.String()
-		logData["URL"] = path
+		logData["url"] = path
 	} else {
 		// TODO improve:  exponential backoff
 		time.Sleep(time.Duration(attempts) * 10 * time.Second)

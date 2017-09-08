@@ -33,7 +33,7 @@ func TestGetInstance(t *testing.T) {
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"},
 			MockedHTTPResponse{StatusCode: 200,
-				Body: `{"instance_id":"iid","total_observations":1122,"total_inserted_observations":2233,"links":{"job":{"id":"jid1","href":"http://jid1"}},"state":"created"}`})
+				Body: `{"id":"iid","total_observations":1122,"total_inserted_observations":2233,"links":{"job":{"id":"jid1","href":"http://jid1"}},"state":"created"}`})
 
 		instance, err := mockedAPI.GetInstance(instanceID)
 		So(err, ShouldBeNil)
@@ -73,7 +73,7 @@ func TestGetInstances(t *testing.T) {
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"instance_id":"iid","total_observations":1122}]}`})
+		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"id":"iid","total_observations":1122}]}`})
 		instances, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{Instance{InstanceID: "iid", NumberOfObservations: 1122}})
@@ -83,7 +83,7 @@ func TestGetInstances(t *testing.T) {
 		mockedAPI := getMockDatasetAPI(
 			http.Request{Method: "GET"},
 			MockedHTTPResponse{StatusCode: 200,
-				Body: `{"items":[{"instance_id":"iid","total_observations":1122},{"instance_id":"iid2","total_observations":2234}]}`})
+				Body: `{"items":[{"id":"iid","total_observations":1122},{"id":"iid2","total_observations":2234}]}`})
 
 		instances, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldBeNil)
