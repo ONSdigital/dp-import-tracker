@@ -71,13 +71,13 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(dataset
 	return nil
 }
 
-// getInstanceListFromImportAPI gets a list of current import Instances, to seed our in-memory list
-func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(datasetAPI *api.DatasetAPI) error {
-	instancesFromAPI, err := datasetAPI.GetInstances(url.Values{"instance_states": []string{"created"}})
+// getInstanceList gets a list of current import Instances, to seed our in-memory list
+func (trackedInstances trackedInstanceList) getInstanceList(api *api.DatasetAPI) error {
+	instancesFromAPI, err := api.GetInstances(url.Values{"instance_states": []string{"created"}})
 	if err != nil {
 		return err
 	}
-	log.Debug("instances", log.Data{"datasetAPI": instancesFromAPI})
+	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 		instanceID := instance.InstanceID
 		trackedInstances[instanceID] = trackedInstance{
@@ -125,14 +125,6 @@ func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.Dat
 	return nil
 }
 
-// updateInstanceWithObservationsInserted updates a specific import instance with the counts of inserted observations
-func updateInstanceWithObservationsInserted(datasetAPI *api.DatasetAPI, instanceID string, observationsInserted int32) error {
-	if err := datasetAPI.UpdateInstanceWithNewInserts(instanceID, observationsInserted); err != nil {
-		return err
-	}
-	return nil
-}
-
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	createInstanceChan chan string,
@@ -141,7 +133,7 @@ func manageActiveInstanceEvents(
 	importAPI *api.ImportAPI) {
 
 	trackedInstances := make(trackedInstanceList)
-	if err := trackedInstances.getInstanceListFromImportAPI(datasetAPI); err != nil {
+	if err := trackedInstances.getInstanceList(datasetAPI); err != nil {
 		logFatal("could not obtain initial instance list", err, nil)
 	}
 
@@ -170,7 +162,7 @@ func manageActiveInstanceEvents(
 				log.Info("warning: import instance not in tracked list for update", log.Data{"update": updateObservationsInserted})
 			}
 			log.Debug("updating import instance", log.Data{"update": updateObservationsInserted})
-			if err := updateInstanceWithObservationsInserted(datasetAPI, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
+			if err := datasetAPI.UpdateInstanceWithNewInserts(instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
 				log.ErrorC("failed to add inserts to instance", err, log.Data{"update": updateObservationsInserted})
 			}
 		case <-checkForCompletedInstancesChan:
