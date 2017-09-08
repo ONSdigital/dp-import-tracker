@@ -25,6 +25,11 @@ func NewDatasetAPI(client *http.Client, url string, authToken string) *DatasetAP
 	}
 }
 
+// InstanceResults wraps instances objects for pagination
+type InstanceResults struct {
+	Items []Instance `json:"items"`
+}
+
 // Instance comes in results from the Dataset API
 type Instance struct {
 	InstanceID                string `json:"instance_id"`
@@ -75,12 +80,12 @@ func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
 	}
 	logData["jsonBody"] = jsonBody
 
-	var instances []Instance
-	if err := json.Unmarshal(jsonBody, &instances); err != nil {
+	var instanceResults InstanceResults
+	if err := json.Unmarshal(jsonBody, &instanceResults); err != nil {
 		log.ErrorC("GetInstances Unmarshal", err, logData)
 		return nil, err
 	}
-	return instances, nil
+	return instanceResults.Items, nil
 }
 
 // UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID

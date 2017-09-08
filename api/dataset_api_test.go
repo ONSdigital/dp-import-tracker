@@ -49,7 +49,7 @@ func TestGetInstance(t *testing.T) {
 
 func TestGetInstances(t *testing.T) {
 	Convey("When no import-instances are returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "[]"})
+		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[]}`})
 		instances, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldBeEmpty)
@@ -62,20 +62,24 @@ func TestGetInstances(t *testing.T) {
 	})
 
 	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: "[]"})
+		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: `{"items":[]}`})
 		_, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `[{"instance_id":"iid","total_observations":1122}]`})
+		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"instance_id":"iid","total_observations":1122}]}`})
 		instances, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{Instance{InstanceID: "iid", NumberOfObservations: 1122}})
 	})
 
 	Convey("When multiple import-instances are returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `[{"instance_id":"iid","total_observations":1122},{"instance_id":"iid2","total_observations":2234}]`})
+		mockedAPI := getMockDatasetAPI(
+			http.Request{Method: "GET"},
+			MockedHTTPResponse{StatusCode: 200,
+				Body: `{"items":[{"instance_id":"iid","total_observations":1122},{"instance_id":"iid2","total_observations":2234}]}`})
+
 		instances, err := mockedAPI.GetInstances(nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{
