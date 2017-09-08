@@ -17,12 +17,12 @@ type ImportAPI struct {
 
 // ImportJob comes from the Import API and links an import job to its (other) instances
 type ImportJob struct {
-	JobID     string   `json:"job_id"`
-	Instances []IDLink `json:"instances"`
+	JobID     string         `json:"job_id"`
+	Instances []InstanceLink `json:"instances"`
 }
 
-// IDLink identifies an (instance or import-job) by id and URL (from Import API)
-type IDLink struct {
+// InstanceLink identifies an (instance or import-job) by id and URL (from Import API)
+type InstanceLink struct {
 	ID   string `json:"id"`
 	Link string `json:"link"`
 }

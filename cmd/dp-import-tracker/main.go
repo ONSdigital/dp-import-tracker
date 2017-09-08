@@ -64,7 +64,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(dataset
 		tempCopy.observationsInsertedCount = observationsInsertedCount
 	}
 	// update jobID (should only 'change' once, on first update after initial creation of the instance - which has no jobID)
-	if importID := instanceFromAPI.Job.ID; importID != trackedInstances[instanceID].jobID {
+	if importID := instanceFromAPI.Links.Job.ID; importID != trackedInstances[instanceID].jobID {
 		tempCopy.jobID = importID
 	}
 	trackedInstances[instanceID] = tempCopy
@@ -83,7 +83,7 @@ func (trackedInstances trackedInstanceList) getInstanceListFromImportAPI(dataset
 		trackedInstances[instanceID] = trackedInstance{
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.TotalInsertedObservations,
-			jobID: instance.Job.ID,
+			jobID: instance.Links.Job.ID,
 		}
 	}
 	return nil

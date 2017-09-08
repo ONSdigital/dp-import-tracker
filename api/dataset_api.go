@@ -32,11 +32,22 @@ type InstanceResults struct {
 
 // Instance comes in results from the Dataset API
 type Instance struct {
-	InstanceID                string `json:"instance_id"`
-	NumberOfObservations      int64  `json:"total_observations"`
-	TotalInsertedObservations int64  `json:"total_inserted_observations,omitempty"`
-	Job                       IDLink `json:"job"`
-	State                     string `json:"state"`
+	InstanceID                string        `json:"id"`
+	Links                     InstanceLinks `json:"links,omitempty"`
+	NumberOfObservations      int64         `json:"total_observations"`
+	TotalInsertedObservations int64         `json:"total_inserted_observations,omitempty"`
+	State                     string        `json:"state"`
+}
+
+// InstanceLinks holds all links for an instance
+type InstanceLinks struct {
+	Job JobLinks `json:"job"`
+}
+
+// InstanceLink holds the id and a link to the resource
+type JobLinks struct {
+	ID   string `json:"id"`
+	HRef string `json:"href"`
 }
 
 // GetInstance asks the Dataset API for the details for instanceID
