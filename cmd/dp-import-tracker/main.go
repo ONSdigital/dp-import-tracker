@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"net/http"
 	"net/url"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/schema"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/go-ns/rhttp"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -226,7 +226,7 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
-	client := &http.Client{}
+	client := rhttp.DefaultClient
 	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
 	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
 

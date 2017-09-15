@@ -6,11 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ONSdigital/go-ns/rhttp"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
-	client = &http.Client{}
+	client = &rhttp.Client{HTTPClient: &http.Client{}}
 )
 
 type MockedHTTPResponse struct {

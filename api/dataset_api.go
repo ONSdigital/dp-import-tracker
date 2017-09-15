@@ -3,21 +3,23 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ONSdigital/go-ns/log"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/go-ns/rhttp"
 )
 
 // DatasetAPI aggregates a client and url and other common data for accessing the API
 type DatasetAPI struct {
-	client    *http.Client
+	client    *rhttp.Client
 	url       string
 	authToken string
 }
 
 // NewDatasetAPI creates an DatasetAPI object
-func NewDatasetAPI(client *http.Client, url string, authToken string) *DatasetAPI {
+func NewDatasetAPI(client *rhttp.Client, url string, authToken string) *DatasetAPI {
 	return &DatasetAPI{
 		client:    client,
 		url:       url,
@@ -54,7 +56,7 @@ type JobLinks struct {
 func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
-	jsonBody, httpCode, err := api.get(path, 0, nil)
+	jsonBody, httpCode, err := api.get(path, nil)
 	logData["httpCode"] = httpCode
 	if httpCode == http.StatusNotFound {
 		return Instance{}, nil
@@ -80,7 +82,7 @@ func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
 func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
 	path := api.url + "/instances"
 	logData := log.Data{"path": path}
-	jsonBody, httpCode, err := api.get(path, 0, vars)
+	jsonBody, httpCode, err := api.get(path, vars)
 	logData["httpCode"] = httpCode
 	if err == nil && httpCode != http.StatusOK {
 		err = errors.New("Bad response while getting dataset instances")
@@ -103,7 +105,7 @@ func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(instanceID string, observationsInserted int32) error {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
-	jsonBody, httpCode, err := api.put(path, 0, nil)
+	jsonBody, httpCode, err := api.put(path, nil)
 	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
 	if err == nil && httpCode != http.StatusOK {
@@ -122,7 +124,7 @@ func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) e
 	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"instance_id":"` + instanceID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(path, 0, jsonUpload)
+	jsonResult, httpCode, err := api.put(path, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
 	if err == nil && httpCode != http.StatusOK {
@@ -135,10 +137,10 @@ func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) e
 	return nil
 }
 
-func (api *DatasetAPI) get(path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.client, "GET", path, api.authToken, maxRetries, attempts, vars)
+func (api *DatasetAPI) get(path string, vars url.Values) ([]byte, int, error) {
+	return callAPI(api.client, "GET", path, api.authToken, vars)
 }
 
-func (api *DatasetAPI) put(path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(api.client, "PUT", path, api.authToken, maxRetries, attempts, payload)
+func (api *DatasetAPI) put(path string, payload []byte) ([]byte, int, error) {
+	return callAPI(api.client, "PUT", path, api.authToken, payload)
 }

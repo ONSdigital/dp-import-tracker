@@ -3,14 +3,16 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"github.com/ONSdigital/go-ns/log"
 	"net/http"
 	"net/url"
+
+	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/go-ns/rhttp"
 )
 
 // ImportAPI aggregates a client and url and other common data for accessing the API
 type ImportAPI struct {
-	client    *http.Client
+	client    *rhttp.Client
 	url       string
 	authToken string
 }
@@ -28,7 +30,7 @@ type InstanceLink struct {
 }
 
 // NewImportAPI creates an ImportAPI object
-func NewImportAPI(client *http.Client, url, authToken string) *ImportAPI {
+func NewImportAPI(client *rhttp.Client, url, authToken string) *ImportAPI {
 	return &ImportAPI{
 		client:    client,
 		url:       url,
@@ -83,9 +85,9 @@ func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error 
 }
 
 func (api *ImportAPI) get(path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.client, "GET", path, api.authToken, maxRetries, attempts, vars)
+	return callAPI(api.client, "GET", path, api.authToken, vars)
 }
 
 func (api *ImportAPI) put(path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(api.client, "PUT", path, api.authToken, maxRetries, attempts, payload)
+	return callAPI(api.client, "PUT", path, api.authToken, payload)
 }

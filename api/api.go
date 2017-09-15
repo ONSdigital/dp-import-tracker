@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/ONSdigital/go-ns/log"
+	"github.com/ONSdigital/go-ns/rhttp"
 )
 
 var (
@@ -15,27 +15,22 @@ var (
 )
 
 func callAPI(
-	client *http.Client,
+	client *rhttp.Client,
 	method, path, authToken string,
-	maxRetries, attempts int,
-	payload interface{}) ([]byte, int, error) {
+	payload interface{}) ([]byte, int, error,
+) {
 
-	logData := log.Data{"url": path, "method": method, "attempts": attempts}
+	logData := log.Data{"url": path, "method": method}
 
-	if attempts == 0 {
-		URL, err := url.Parse(path)
-		if err != nil {
-			log.ErrorC("Failed to create url for ImportAPI call", err, logData)
-			return nil, 0, err
-		}
-		path = URL.String()
-		logData["url"] = path
-	} else {
-		// TODO improve:  exponential backoff
-		time.Sleep(time.Duration(attempts) * 10 * time.Second)
+	URL, err := url.Parse(path)
+	if err != nil {
+		log.ErrorC("Failed to create url for API call", err, logData)
+		return nil, 0, err
 	}
+	path = URL.String()
+	logData["url"] = path
+
 	var req *http.Request
-	var err error
 
 	if payload != nil && method != "GET" {
 		req, err = http.NewRequest(method, path, bytes.NewReader(payload.([]byte)))
@@ -51,17 +46,14 @@ func callAPI(
 	}
 	// check req, above, didn't error
 	if err != nil {
-		log.ErrorC("Failed to create request for ImportAPI", err, logData)
+		log.ErrorC("Failed to create request for API", err, logData)
 		return nil, 0, err
 	}
 
 	req.Header.Set("Internal-token", authToken)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.ErrorC("Failed to action ImportAPI", err, logData)
-		if attempts < maxRetries {
-			return callAPI(client, method, path, authToken, maxRetries, attempts+1, payload)
-		}
+		log.ErrorC("Failed to action API", err, logData)
 		return nil, 0, err
 	}
 
@@ -73,10 +65,7 @@ func callAPI(
 	defer resp.Body.Close()
 	jsonBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.ErrorC("Failed to read body from ImportAPI", err, logData)
-		if attempts < maxRetries {
-			return callAPI(client, method, path, authToken, maxRetries, attempts+1, payload)
-		}
+		log.ErrorC("Failed to read body from API", err, logData)
 		return nil, resp.StatusCode, err
 	}
 	return jsonBody, resp.StatusCode, nil
