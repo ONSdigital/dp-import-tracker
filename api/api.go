@@ -10,10 +10,6 @@ import (
 	"github.com/ONSdigital/go-ns/rhttp"
 )
 
-var (
-	maxRetries = 5
-)
-
 func callAPI(
 	client *rhttp.Client,
 	method, path, authToken string,
