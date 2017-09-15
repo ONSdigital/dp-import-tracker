@@ -73,7 +73,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(dataset
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
 func (trackedInstances trackedInstanceList) getInstanceList(api *api.DatasetAPI) error {
-	instancesFromAPI, err := api.GetInstances(url.Values{"instance_states": []string{"created"}})
+	instancesFromAPI, err := api.GetInstances(url.Values{"state": []string{"submitted"}})
 	if err != nil {
 		return err
 	}
@@ -101,8 +101,8 @@ func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.Dat
 	}
 
 	targetState := "completed"
-	log.Debug("checking", log.Data{"API insts": importJobFromAPI.Instances})
-	for _, instanceRef := range importJobFromAPI.Instances {
+	log.Debug("checking", log.Data{"API insts": importJobFromAPI.Links.Instances})
+	for _, instanceRef := range importJobFromAPI.Links.Instances {
 		if instanceRef.ID == completedInstanceID {
 			continue
 		}

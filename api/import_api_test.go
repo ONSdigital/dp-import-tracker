@@ -34,8 +34,8 @@ func getMockImportAPI(expectRequest http.Request, mockedHTTPResponse MockedHTTPR
 
 func TestGetImportJob(t *testing.T) {
 	jobID := "jid1"
-	jobJSON := `{"job_id":"` + jobID + `","instances":[{"id":"iid1","link":"iid1link"}]}`
-	jobMultiInstJSON := `{"job_id":"` + jobID + `","instances":[{"id":"iid1","link":"iid1link"},{"id":"iid2","link":"iid2link"}]}`
+	jobJSON := `{"id":"` + jobID + `","links":{"instances":[{"id":"iid1","href":"iid1link"}]}}`
+	jobMultiInstJSON := `{"id":"` + jobID + `","links":{"instances":[{"id":"iid1","href":"iid1link"},{"id":"iid2","href":"iid2link"}]}}`
 
 	Convey("When no import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 404, Body: ""})
@@ -60,17 +60,22 @@ func TestGetImportJob(t *testing.T) {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobJSON})
 		job, err := mockedAPI.GetImportJob(jobID)
 		So(err, ShouldBeNil)
-		So(job, ShouldResemble, ImportJob{JobID: jobID, Instances: []InstanceLink{InstanceLink{ID: "iid1", Link: "iid1link"}}})
+		So(job, ShouldResemble, ImportJob{JobID: jobID, Links: LinkMap{Instances: []InstanceLink{InstanceLink{ID: "iid1", Link: "iid1link"}}}})
 	})
 
 	Convey("When a multiple-instance import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobMultiInstJSON})
 		job, err := mockedAPI.GetImportJob(jobID)
 		So(err, ShouldBeNil)
-		So(job, ShouldResemble, ImportJob{JobID: jobID, Instances: []InstanceLink{
-			InstanceLink{ID: "iid1", Link: "iid1link"},
-			InstanceLink{ID: "iid2", Link: "iid2link"},
-		}})
+		So(job, ShouldResemble, ImportJob{
+			JobID: jobID,
+			Links: LinkMap{
+				Instances: []InstanceLink{
+					InstanceLink{ID: "iid1", Link: "iid1link"},
+					InstanceLink{ID: "iid2", Link: "iid2link"},
+				},
+			},
+		})
 	})
 }
 

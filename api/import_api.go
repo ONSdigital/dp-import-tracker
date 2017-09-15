@@ -19,14 +19,18 @@ type ImportAPI struct {
 
 // ImportJob comes from the Import API and links an import job to its (other) instances
 type ImportJob struct {
-	JobID     string         `json:"job_id"`
+	JobID string  `json:"id"`
+	Links LinkMap `json:"links,ignoreempty"`
+}
+
+type LinkMap struct {
 	Instances []InstanceLink `json:"instances"`
 }
 
 // InstanceLink identifies an (instance or import-job) by id and url (from Import API)
 type InstanceLink struct {
 	ID   string `json:"id"`
-	Link string `json:"link"`
+	Link string `json:"href"`
 }
 
 // NewImportAPI creates an ImportAPI object
@@ -69,7 +73,7 @@ func (api *ImportAPI) GetImportJob(importJobID string) (ImportJob, error) {
 func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error {
 	path := api.url + "/jobs/" + jobID
 	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"job_id":"` + jobID + `","state":"` + newState + `"}`)
+	jsonUpload := []byte(`{"state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonResult, httpCode, err := api.put(path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
