@@ -9,16 +9,22 @@
 			"revisionTime": "2017-07-28T08:24:17Z"
 		},
 		{
-			"checksumSHA1": "dF3c6fF99+C/Y09aqUqJ9ouiHPE=",
+			"checksumSHA1": "KKa786RsXQHxEnTAjeBOzoYLVIE=",
 			"path": "github.com/ONSdigital/go-ns/kafka",
-			"revision": "c493b1568574c9720d7805f23ce6271ac445dc57",
-			"revisionTime": "2017-07-28T08:24:17Z"
+			"revision": "f48b96961e1cf255a2e901651a3e629569f20e21",
+			"revisionTime": "2017-09-28T14:04:18Z"
 		},
 		{
 			"checksumSHA1": "AjbjbhFVAOP/1NU5HL+uy+X/yJo=",
 			"path": "github.com/ONSdigital/go-ns/log",
 			"revision": "c493b1568574c9720d7805f23ce6271ac445dc57",
 			"revisionTime": "2017-07-28T08:24:17Z"
+		},
+		{
+			"checksumSHA1": "yDc9FMgs8F379i52A0wQgRhEyX4=",
+			"path": "github.com/ONSdigital/go-ns/rchttp",
+			"revision": "f48b96961e1cf255a2e901651a3e629569f20e21",
+			"revisionTime": "2017-09-28T14:04:18Z"
 		},
 		{
 			"checksumSHA1": "+Jp0tVXfQ1TM8T+oun82oJtME5U=",
@@ -163,6 +169,18 @@
 			"path": "github.com/smartystreets/logging",
 			"revision": "ac3a674540761aa0b4382094ba4795f917e85c7f",
 			"revisionTime": "2016-08-01T17:25:37Z"
+		},
+		{
+			"checksumSHA1": "dr5+PfIRzXeN+l1VG+s0lea9qz8=",
+			"path": "golang.org/x/net/context",
+			"revision": "0a9397675ba34b2845f758fe3cd68828369c6517",
+			"revisionTime": "2017-07-19T03:24:12Z"
+		},
+		{
+			"checksumSHA1": "WHc3uByvGaMcnSoI21fhzYgbOgg=",
+			"path": "golang.org/x/net/context/ctxhttp",
+			"revision": "0a9397675ba34b2845f758fe3cd68828369c6517",
+			"revisionTime": "2017-07-19T03:24:12Z"
 		},
 		{
 			"checksumSHA1": "MBmecV6tS+vsAHgwPiGWSU3jBoc=",
