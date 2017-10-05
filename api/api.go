@@ -2,16 +2,18 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 
 	"github.com/ONSdigital/go-ns/log"
-	"github.com/ONSdigital/go-ns/rhttp"
+	"github.com/ONSdigital/go-ns/rchttp"
 )
 
 func callAPI(
-	client *rhttp.Client,
+	ctx context.Context,
+	client *rchttp.Client,
 	method, path, authToken string,
 	payload interface{}) ([]byte, int, error,
 ) {
@@ -47,7 +49,7 @@ func callAPI(
 	}
 
 	req.Header.Set("Internal-token", authToken)
-	resp, err := client.Do(req)
+	resp, err := client.Do(ctx, req)
 	if err != nil {
 		log.ErrorC("Failed to action API", err, logData)
 		return nil, 0, err

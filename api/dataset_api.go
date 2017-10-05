@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,18 +9,18 @@ import (
 	"strconv"
 
 	"github.com/ONSdigital/go-ns/log"
-	"github.com/ONSdigital/go-ns/rhttp"
+	"github.com/ONSdigital/go-ns/rchttp"
 )
 
 // DatasetAPI aggregates a client and url and other common data for accessing the API
 type DatasetAPI struct {
-	client    *rhttp.Client
+	client    *rchttp.Client
 	url       string
 	authToken string
 }
 
 // NewDatasetAPI creates an DatasetAPI object
-func NewDatasetAPI(client *rhttp.Client, url string, authToken string) *DatasetAPI {
+func NewDatasetAPI(client *rchttp.Client, url string, authToken string) *DatasetAPI {
 	return &DatasetAPI{
 		client:    client,
 		url:       url,
@@ -53,10 +54,10 @@ type JobLinks struct {
 }
 
 // GetInstance asks the Dataset API for the details for instanceID
-func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
+func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (Instance, error) {
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
-	jsonBody, httpCode, err := api.get(path, nil)
+	jsonBody, httpCode, err := api.get(ctx, path, nil)
 	logData["httpCode"] = httpCode
 	if httpCode == http.StatusNotFound {
 		return Instance{}, nil
@@ -79,10 +80,10 @@ func (api *DatasetAPI) GetInstance(instanceID string) (Instance, error) {
 }
 
 // GetInstances asks the Dataset API for all instances filtered by vars
-func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
+func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) ([]Instance, error) {
 	path := api.url + "/instances"
 	logData := log.Data{"path": path}
-	jsonBody, httpCode, err := api.get(path, vars)
+	jsonBody, httpCode, err := api.get(ctx, path, vars)
 	logData["httpCode"] = httpCode
 	if err == nil && httpCode != http.StatusOK {
 		err = errors.New("Bad response while getting dataset instances")
@@ -102,10 +103,10 @@ func (api *DatasetAPI) GetInstances(vars url.Values) ([]Instance, error) {
 }
 
 // UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID
-func (api *DatasetAPI) UpdateInstanceWithNewInserts(instanceID string, observationsInserted int32) error {
+func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) error {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
-	jsonBody, httpCode, err := api.put(path, nil)
+	jsonBody, httpCode, err := api.put(ctx, path, nil)
 	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
 	if err == nil && httpCode != http.StatusOK {
@@ -119,12 +120,12 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(instanceID string, observati
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
-func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) error {
+func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) error {
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"instance_id":"` + instanceID + `","state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(path, jsonUpload)
+	jsonResult, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
 	if err == nil && httpCode != http.StatusOK {
@@ -137,10 +138,10 @@ func (api *DatasetAPI) UpdateInstanceState(instanceID string, newState string) e
 	return nil
 }
 
-func (api *DatasetAPI) get(path string, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.client, "GET", path, api.authToken, vars)
+func (api *DatasetAPI) get(ctx context.Context, path string, vars url.Values) ([]byte, int, error) {
+	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
 }
 
-func (api *DatasetAPI) put(path string, payload []byte) ([]byte, int, error) {
-	return callAPI(api.client, "PUT", path, api.authToken, payload)
+func (api *DatasetAPI) put(ctx context.Context, path string, payload []byte) ([]byte, int, error) {
+	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
 }

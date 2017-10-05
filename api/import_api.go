@@ -1,18 +1,19 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
 
 	"github.com/ONSdigital/go-ns/log"
-	"github.com/ONSdigital/go-ns/rhttp"
+	"github.com/ONSdigital/go-ns/rchttp"
 )
 
 // ImportAPI aggregates a client and url and other common data for accessing the API
 type ImportAPI struct {
-	client    *rhttp.Client
+	client    *rchttp.Client
 	url       string
 	authToken string
 }
@@ -34,7 +35,7 @@ type InstanceLink struct {
 }
 
 // NewImportAPI creates an ImportAPI object
-func NewImportAPI(client *rhttp.Client, url, authToken string) *ImportAPI {
+func NewImportAPI(client *rchttp.Client, url, authToken string) *ImportAPI {
 	return &ImportAPI{
 		client:    client,
 		url:       url,
@@ -43,10 +44,10 @@ func NewImportAPI(client *rhttp.Client, url, authToken string) *ImportAPI {
 }
 
 // GetImportJob asks the Import API for the details for an Import job
-func (api *ImportAPI) GetImportJob(importJobID string) (ImportJob, error) {
+func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (ImportJob, error) {
 	path := api.url + "/jobs/" + importJobID
 	logData := log.Data{"path": path, "importJobID": importJobID}
-	jsonBody, httpCode, err := api.get(path, 0, nil)
+	jsonBody, httpCode, err := api.get(ctx, path, 0, nil)
 	if httpCode == http.StatusNotFound {
 		return ImportJob{}, nil
 	}
@@ -70,12 +71,12 @@ func (api *ImportAPI) GetImportJob(importJobID string) (ImportJob, error) {
 }
 
 // UpdateImportJobState tells the Import API that the state has changed of an Import job
-func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error {
+func (api *ImportAPI) UpdateImportJobState(ctx context.Context, jobID string, newState string) error {
 	path := api.url + "/jobs/" + jobID
 	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(path, 0, jsonUpload)
+	jsonResult, httpCode, err := api.put(ctx, path, 0, jsonUpload)
 	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
 	if err == nil && httpCode != http.StatusOK {
@@ -88,10 +89,10 @@ func (api *ImportAPI) UpdateImportJobState(jobID string, newState string) error 
 	return nil
 }
 
-func (api *ImportAPI) get(path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(api.client, "GET", path, api.authToken, vars)
+func (api *ImportAPI) get(ctx context.Context, path string, attempts int, vars url.Values) ([]byte, int, error) {
+	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
 }
 
-func (api *ImportAPI) put(path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(api.client, "PUT", path, api.authToken, payload)
+func (api *ImportAPI) put(ctx context.Context, path string, attempts int, payload []byte) ([]byte, int, error) {
+	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
 }
