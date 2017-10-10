@@ -17,21 +17,24 @@ func TestGetInstance(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When no import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		instance, err := mockedAPI.GetInstance(ctx, instanceID)
+		instance, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
 		So(instance, ShouldResemble, Instance{})
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When bad json is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, err := mockedAPI.GetInstance(ctx, instanceID)
+		_, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		_, err := mockedAPI.GetInstance(ctx, instanceID)
+		_, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
@@ -39,7 +42,7 @@ func TestGetInstance(t *testing.T) {
 			MockedHTTPResponse{StatusCode: 200,
 				Body: `{"id":"iid","total_observations":1122,"total_inserted_observations":2233,"links":{"job":{"id":"jid1","href":"http://jid1"}},"state":"created"}`})
 
-		instance, err := mockedAPI.GetInstance(ctx, instanceID)
+		instance, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldBeNil)
 		So(instance, ShouldResemble, Instance{
 			State:                     "created",
@@ -53,34 +56,39 @@ func TestGetInstance(t *testing.T) {
 				},
 			},
 		})
+		So(isFatal, ShouldBeFalse)
 	})
 }
 
 func TestGetInstances(t *testing.T) {
 	Convey("When no import-instances are returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[]}`})
-		instances, err := mockedAPI.GetInstances(ctx, nil)
+		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldBeEmpty)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When bad json is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, err := mockedAPI.GetInstances(ctx, nil)
+		_, err, isFatal := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: `{"items":[]}`})
-		_, err := mockedAPI.GetInstances(ctx, nil)
+		_, err, isFatal := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"id":"iid","total_observations":1122}]}`})
-		instances, err := mockedAPI.GetInstances(ctx, nil)
+		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{Instance{InstanceID: "iid", NumberOfObservations: 1122}})
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When multiple import-instances are returned", t, func() {
@@ -89,7 +97,7 @@ func TestGetInstances(t *testing.T) {
 			MockedHTTPResponse{StatusCode: 200,
 				Body: `{"items":[{"id":"iid","total_observations":1122},{"id":"iid2","total_observations":2234}]}`})
 
-		instances, err := mockedAPI.GetInstances(ctx, nil)
+		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{
 			Instance{
@@ -101,6 +109,7 @@ func TestGetInstances(t *testing.T) {
 				NumberOfObservations: 2234,
 			},
 		})
+		So(isFatal, ShouldBeFalse)
 	})
 }
 
@@ -108,20 +117,23 @@ func TestUpdateInstanceWithNewInserts(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When bad request is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 }
 
@@ -129,20 +141,23 @@ func TestUpdateInstanceState(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When bad request is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 }
 

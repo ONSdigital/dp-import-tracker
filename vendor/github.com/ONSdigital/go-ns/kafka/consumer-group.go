@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"context"
-	"errors"
 
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/bsm/sarama-cluster"
@@ -20,6 +19,7 @@ type ConsumerGroup struct {
 	errors   chan error
 	closer   chan struct{}
 	closed   chan struct{}
+	topic    string
 }
 
 // Incoming provides a channel of incoming messages.
@@ -30,6 +30,27 @@ func (cg ConsumerGroup) Incoming() chan Message {
 // Errors provides a channel of incoming errors.
 func (cg ConsumerGroup) Errors() chan error {
 	return cg.errors
+}
+
+// StopListeningToConsumer stops any more messages being consumed off kafka topic
+func (cg *ConsumerGroup) StopListeningToConsumer(ctx context.Context) (err error) {
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var q struct{}
+	cg.closer <- q
+
+	select {
+	case <-cg.closed:
+		log.Info("Stopped listening to kafka consumer group", log.Data{"topic": cg.topic})
+		return
+	case <-ctx.Done():
+		err = fmt.Errorf("StopListeningToConsumer context timed out for topic[%s]: %s", cg.topic, ctx.Err())
+		log.Error(err, nil)
+		return err
+	}
 }
 
 // Close safely closes the consumer and releases all resources.
@@ -45,14 +66,21 @@ func (cg *ConsumerGroup) Close(ctx context.Context) (err error) {
 
 	select {
 	case <-cg.closed:
-		log.Info(fmt.Sprintf("Successfully closed kafka consumer group"), nil)
 		close(cg.errors)
 		close(cg.incoming)
-		return cg.consumer.Close()
 
+		if err = cg.consumer.Close(); err != nil {
+			err = fmt.Errorf("Failed to close kafka consumer group for topic[%s]: %s", cg.topic, err)
+			log.Error(err, nil)
+			return
+		}
+
+		log.Info("Successfully closed kafka consumer group", log.Data{"topic": cg.topic})
+		return
 	case <-ctx.Done():
-		log.Info(fmt.Sprintf("Shutdown context time exceeded, skipping graceful shutdown of consumer group"), nil)
-		return errors.New("Shutdown context timed out")
+		err = fmt.Errorf("Shutdown context timed out for topic[%s]: %s", cg.topic, ctx.Err())
+		log.Error(err, nil)
+		return err
 	}
 }
 
@@ -76,6 +104,7 @@ func NewConsumerGroup(brokers []string, topic string, group string, offset int64
 		closer:   make(chan struct{}),
 		closed:   make(chan struct{}),
 		errors:   make(chan error),
+		topic:    topic,
 	}
 
 	go func() {
@@ -86,6 +115,11 @@ func NewConsumerGroup(brokers []string, topic string, group string, offset int64
 			case err := <-consumer.Errors():
 				log.Error(err, nil)
 				cg.Errors() <- err
+			case <-cg.closer:
+				consumer.CommitOffsets()
+				log.Info(fmt.Sprintf("Closing kafka consumer of topic %q group %q", topic, group), nil)
+				return
+
 			default:
 				select {
 				case msg := <-consumer.Messages():
@@ -96,10 +130,6 @@ func NewConsumerGroup(brokers []string, topic string, group string, offset int64
 					}
 				case <-time.After(tick):
 					consumer.CommitOffsets()
-				case <-cg.closer:
-					consumer.CommitOffsets()
-					log.Info(fmt.Sprintf("Closing kafka consumer of topic %q group %q", topic, group), nil)
-					return
 				}
 			}
 		}

@@ -39,33 +39,37 @@ func TestGetImportJob(t *testing.T) {
 
 	Convey("When no import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 404, Body: ""})
-		job, err := mockedAPI.GetImportJob(ctx, jobID)
+		job, err, isFatal := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldBeNil)
 		So(job, ShouldResemble, ImportJob{})
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When bad json is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, err := mockedAPI.GetImportJob(ctx, jobID)
+		_, err, isFatal := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: "[]"})
-		_, err := mockedAPI.GetImportJob(ctx, jobID)
+		_, err, isFatal := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single-instance import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobJSON})
-		job, err := mockedAPI.GetImportJob(ctx, jobID)
+		job, err, isFatal := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldBeNil)
 		So(job, ShouldResemble, ImportJob{JobID: jobID, Links: LinkMap{Instances: []InstanceLink{InstanceLink{ID: "iid1", Link: "iid1link"}}}})
+		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a multiple-instance import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobMultiInstJSON})
-		job, err := mockedAPI.GetImportJob(ctx, jobID)
+		job, err, isFatal := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldBeNil)
 		So(job, ShouldResemble, ImportJob{
 			JobID: jobID,
@@ -76,6 +80,7 @@ func TestGetImportJob(t *testing.T) {
 				},
 			},
 		})
+		So(isFatal, ShouldBeFalse)
 	})
 }
 

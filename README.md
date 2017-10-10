@@ -37,6 +37,7 @@ for the parent import job, if all other instances are also `completed`).
 | DATASET_API_ADDR                      | `http://localhost:22000`                      | The address of Dataset API
 | DATASET_API_AUTH_TOKEN                | _no default_                                  | Authentication token for access to Dataset API
 | DB_ACCESS                             | `user=dp dbname=ImportJobs sslmode=disable`   | URL for Postgresql
+| BIND_ADDR                             | `:21300`                                      | address to listen on for healthcheck requests
 
 ### Contributing
 
