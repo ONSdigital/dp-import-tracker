@@ -348,8 +348,7 @@ func main() {
 	reduceWaits := make(chan bool)
 
 	// tell the kafka consumers to stop receiving new messages, wait for mainLoopEndedChan, then consumers.Close
-	waitsLeft = atomic.AddInt32(&waitCount, 1)
-	go func() {
+	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
 		if err := observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 		} else {
@@ -357,11 +356,9 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		observationsInsertedEventConsumer.Close(shutdownContext)
-		reduceWaits <- true
-	}()
+	})
 	// repeat above for 2nd consumer
-	waitsLeft = atomic.AddInt32(&waitCount, 1)
-	go func() {
+	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
 		if err := newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 		} else {
@@ -369,18 +366,15 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		newInstanceEventConsumer.Close(shutdownContext)
-		reduceWaits <- true
-	}()
+	})
 
 	// background httpServer shutdown
-	waitsLeft = atomic.AddInt32(&waitCount, 1)
-	go func() {
+	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
 		api.StopHealthCheck(shutdownContext)
 		<-httpServerDoneChan
-		reduceWaits <- true
-	}()
+	})
 
-	// loop until context is done (cancelled or timeout) (waitCount==0 cancels the context)
+	// loop until context is done (cancelled or timeout) NOTE: waitCount==0 cancels the context
 	for contextRunning := true; contextRunning; {
 		select {
 		case <-shutdownContext.Done():
@@ -394,4 +388,15 @@ func main() {
 
 	log.Info("Shutdown done", log.Data{"context": shutdownContext.Err(), "waitsLeft": waitsLeft})
 	os.Exit(1)
+}
+
+// backgroundAndCount runs a function in a goroutine, after adding 1 to the waitCount
+// - when the function completes, the waitCount is reduced (via a channel message)
+func backgroundAndCount(waitCountPtr *int32, reduceWaitsChan chan bool, bgFunc func()) int32 {
+	newWaitCount := atomic.AddInt32(waitCountPtr, 1)
+	go func() {
+		bgFunc()
+		reduceWaitsChan <- true
+	}()
+	return newWaitCount
 }
