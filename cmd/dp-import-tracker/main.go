@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"os/signal"
@@ -36,9 +37,9 @@ type inputFileAvailable struct {
 }
 
 type insertedObservationsEvent struct {
-	InstanceID                   string `json:"instance_id" avro:"instance_id"`
-	NumberOfObservationsInserted int32  `json:"number_of_inserted_observations" avro:"observations_inserted"`
-	DoneChan                     chan bool
+	InstanceID                   string    `json:"instance_id" avro:"instance_id"`
+	NumberOfObservationsInserted int32     `json:"number_of_inserted_observations" avro:"observations_inserted"`
+	DoneChan                     chan bool `avro:"-"`
 }
 
 type trackedInstance struct {
@@ -142,7 +143,7 @@ func manageActiveInstanceEvents(
 	importAPI *api.ImportAPI,
 	instanceLoopDoneChan chan bool) {
 
-	// inform main() (and above ticker goroutine) when we stop processing events
+	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
@@ -153,7 +154,7 @@ func manageActiveInstanceEvents(
 	for looping := true; looping; {
 		select {
 		case <-ctx.Done():
-			log.Debug("Instance loop completing", nil)
+			log.Debug("manageActiveInstanceEvents: loop ending (context done)", nil)
 			looping = false
 		case <-time.Tick(checkForCompleteInstancesTick):
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
@@ -234,7 +235,7 @@ func main() {
 		ShutdownTimeout:           10 * time.Second,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
-		logFatal("gofigure failed", err, nil)
+		logFatal("envconfig failed", err, nil)
 	}
 
 	log.Info("starting", log.Data{
@@ -262,67 +263,91 @@ func main() {
 	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
 	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
 
+	// create context for all work
+	mainContext, mainContextCancel := context.WithCancel(context.Background())
+
+	// create instance event handler
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
 	instanceLoopEndedChan := make(chan bool)
-	instanceHandlerContext, instanceHandlerCancel := context.WithCancel(context.Background())
-	go manageActiveInstanceEvents(instanceHandlerContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan)
+	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan)
 
-	// loop over consumers messages and errors (or signals or other bad things)
-	for looping := true; looping; {
-		select {
-		case sig := <-signals:
-			log.Error(errors.New("aborting after signal"), log.Data{"signal": sig.String()})
-			looping = false
-		case insertedObservationsErrorMessage := <-observationsInsertedEventConsumer.Errors():
-			log.Error(errors.New("aborting after consumer error"), log.Data{"error": insertedObservationsErrorMessage, "topic": cfg.ObservationsInsertedTopic})
-			looping = false
-		case newImportConsumerErrorMessage := <-newInstanceEventConsumer.Errors():
-			log.Error(errors.New("aborting after consumer error"), log.Data{"error": newImportConsumerErrorMessage, "topic": cfg.NewInstanceTopic})
-			looping = false
-		case <-instanceLoopEndedChan:
-			log.Error(errors.New("unexpected instance loop exit"), nil)
-			looping = false
-		case err = <-httpServerDoneChan:
-			log.ErrorC("unexpected httpServer exit", err, nil)
-			looping = false
-		case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
-			var newInstanceEvent inputFileAvailable
-			if err := schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
-				log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
-			} else {
-				createInstanceChan <- newInstanceEvent.InstanceID
-			}
-			newInstanceMessage.Commit()
-		case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
-			var insertedUpdate insertedObservationsEvent
-			if err := schema.ObservationsInsertedEvent.Unmarshal(insertedMessage.GetData(), &insertedUpdate); err != nil {
-				log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": insertedMessage})
-			} else {
-				insertedUpdate.DoneChan = make(chan bool)
-				updateInstanceWithObservationsInsertedChan <- insertedUpdate
-				if isFatal := <-insertedUpdate.DoneChan; !isFatal {
-					// do not commit, update was non-fatal (will retry)
-					continue
+	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
+	// sends instance events to the (above) instance event handler
+	mainLoopEndedChan := make(chan error)
+	go func() {
+		defer close(mainLoopEndedChan)
+
+		for looping := true; looping; {
+			select {
+			case <-mainContext.Done():
+				log.Debug("main loop aborting", log.Data{"ctx_err": mainContext.Err()})
+				looping = false
+			case err := <-observationsInsertedEventConsumer.Errors():
+				log.ErrorC("aborting after consumer error", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
+				looping = false
+			case err := <-newInstanceEventConsumer.Errors():
+				log.ErrorC("aborting after consumer error", err, log.Data{"topic": cfg.NewInstanceTopic})
+				looping = false
+			case err := <-httpServerDoneChan:
+				log.ErrorC("unexpected httpServer exit", err, nil)
+				looping = false
+			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
+				var newInstanceEvent inputFileAvailable
+				if err := schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
+					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
+				} else {
+					createInstanceChan <- newInstanceEvent.InstanceID
 				}
+				newInstanceMessage.Commit()
+			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
+				var insertedUpdate insertedObservationsEvent
+				msg := insertedMessage.GetData()
+				log.Trace("ook", log.Data{"msg": msg})
+				if err := schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
+					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": insertedMessage})
+				} else {
+					insertedUpdate.DoneChan = make(chan bool)
+					updateInstanceWithObservationsInsertedChan <- insertedUpdate
+					if isFatal := <-insertedUpdate.DoneChan; !isFatal {
+						// do not commit, update was non-fatal (will retry)
+						continue
+					}
+				}
+				insertedMessage.Commit()
 			}
-			insertedMessage.Commit()
 		}
+		log.Info("main loop completed", nil)
+	}()
+
+	// block until signal or fatal errors in a service handler, then continue to shutdown
+	select {
+	case sig := <-signals:
+		err = fmt.Errorf("aborting after signal %q", sig.String())
+	case <-mainLoopEndedChan:
+		err = errors.New("unexpected main loop exit")
+	case <-instanceLoopEndedChan:
+		err = errors.New("unexpected instance loop exit")
 	}
 
 	// XXX XXX XXX XXX
-	// XXX assert: XXX only get here when we have an error, which has been logged
+	// XXX assert: XXX we only get here after we have had a fatal error (err)
 	// XXX XXX XXX XXX
 
 	// gracefully shutdown the application, closing any open resources
-	log.Error(errors.New("Shutting down with timeout"), log.Data{"timeout": cfg.ShutdownTimeout})
+	log.ErrorC("Start shutdown", err, log.Data{"timeout": cfg.ShutdownTimeout})
 	shutdownContext, shutdownContextCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 
+	// tell main handler to stop
+	// also tells any in-flight work (with this context) to stop
+	mainContextCancel()
+
+	// count background tasks for shutting down services
 	waitCount := int32(0)
 	waitsLeft := int32(0)
 	reduceWaits := make(chan bool)
 
-	// first tell the kafka consumers to stop receiving, wait for instanceLoopEndedChan, then close
+	// tell the kafka consumers to stop receiving new messages, wait for mainLoopEndedChan, then consumers.Close
 	waitsLeft = atomic.AddInt32(&waitCount, 1)
 	go func() {
 		if err := observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
@@ -330,48 +355,35 @@ func main() {
 		} else {
 			log.Debug("listen stopped", log.Data{"topic": cfg.ObservationsInsertedTopic})
 		}
-		<-instanceLoopEndedChan
+		<-mainLoopEndedChan
 		observationsInsertedEventConsumer.Close(shutdownContext)
 		reduceWaits <- true
 	}()
-	waitsLeft = atomic.AddInt32(&waitCount, 1)
 	// repeat above for 2nd consumer
+	waitsLeft = atomic.AddInt32(&waitCount, 1)
 	go func() {
 		if err := newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 		} else {
 			log.Debug("listen stopped", log.Data{"topic": cfg.NewInstanceTopic})
 		}
-		// initiate final close of the consumers (and contexts) when instance loop has completed
-		<-instanceLoopEndedChan
+		<-mainLoopEndedChan
 		newInstanceEventConsumer.Close(shutdownContext)
 		reduceWaits <- true
 	}()
 
-	// background wait for httpServer to shutdown
+	// background httpServer shutdown
 	waitsLeft = atomic.AddInt32(&waitCount, 1)
 	go func() {
 		api.StopHealthCheck(shutdownContext)
 		<-httpServerDoneChan
-		// time.Sleep(11 * time.Second) // TODO testing
 		reduceWaits <- true
 	}()
 
-	// background cancel and wait for the instance handler to stop
-	waitsLeft = atomic.AddInt32(&waitCount, 1)
-	go func() {
-		instanceHandlerCancel()
-		<-instanceLoopEndedChan
-		reduceWaits <- true
-	}()
-
-	// loop until context is done (cancelled or timeout) or waitCount==0 (cancels the context)
+	// loop until context is done (cancelled or timeout) (waitCount==0 cancels the context)
 	for contextRunning := true; contextRunning; {
 		select {
 		case <-shutdownContext.Done():
-			if shutdownContext.Err() != nil {
-				log.ErrorC("timed out while shutting down", shutdownContext.Err(), nil)
-			}
 			contextRunning = false
 		case <-reduceWaits:
 			if waitsLeft = atomic.AddInt32(&waitCount, -1); waitsLeft == 0 {
@@ -380,6 +392,6 @@ func main() {
 		}
 	}
 
-	log.Info("Shutdown done", log.Data{"waitsLeft": waitsLeft})
+	log.Info("Shutdown done", log.Data{"context": shutdownContext.Err(), "waitsLeft": waitsLeft})
 	os.Exit(1)
 }
