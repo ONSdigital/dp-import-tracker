@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -303,7 +302,6 @@ func main() {
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
-				log.Trace("ook", log.Data{"msg": msg})
 				if err := schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
 					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": insertedMessage})
 				} else {
@@ -343,12 +341,11 @@ func main() {
 	mainContextCancel()
 
 	// count background tasks for shutting down services
-	waitCount := int32(0)
-	waitsLeft := int32(0)
+	waitCount := 0
 	reduceWaits := make(chan bool)
 
 	// tell the kafka consumers to stop receiving new messages, wait for mainLoopEndedChan, then consumers.Close
-	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
+	backgroundAndCount(&waitCount, reduceWaits, func() {
 		if err := observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 		} else {
@@ -358,7 +355,7 @@ func main() {
 		observationsInsertedEventConsumer.Close(shutdownContext)
 	})
 	// repeat above for 2nd consumer
-	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
+	backgroundAndCount(&waitCount, reduceWaits, func() {
 		if err := newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 		} else {
@@ -369,7 +366,7 @@ func main() {
 	})
 
 	// background httpServer shutdown
-	waitsLeft = backgroundAndCount(&waitCount, reduceWaits, func() {
+	backgroundAndCount(&waitCount, reduceWaits, func() {
 		api.StopHealthCheck(shutdownContext)
 		<-httpServerDoneChan
 	})
@@ -380,23 +377,23 @@ func main() {
 		case <-shutdownContext.Done():
 			contextRunning = false
 		case <-reduceWaits:
-			if waitsLeft = atomic.AddInt32(&waitCount, -1); waitsLeft == 0 {
+			waitCount--
+			if waitCount == 0 {
 				shutdownContextCancel()
 			}
 		}
 	}
 
-	log.Info("Shutdown done", log.Data{"context": shutdownContext.Err(), "waitsLeft": waitsLeft})
+	log.Info("Shutdown done", log.Data{"context": shutdownContext.Err(), "waits_left": waitCount})
 	os.Exit(1)
 }
 
 // backgroundAndCount runs a function in a goroutine, after adding 1 to the waitCount
 // - when the function completes, the waitCount is reduced (via a channel message)
-func backgroundAndCount(waitCountPtr *int32, reduceWaitsChan chan bool, bgFunc func()) int32 {
-	newWaitCount := atomic.AddInt32(waitCountPtr, 1)
+func backgroundAndCount(waitCountPtr *int, reduceWaitsChan chan bool, bgFunc func()) {
+	*waitCountPtr++
 	go func() {
 		bgFunc()
 		reduceWaitsChan <- true
 	}()
-	return newWaitCount
 }
