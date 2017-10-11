@@ -150,12 +150,19 @@ func manageActiveInstanceEvents(
 		logFatal("could not obtain initial instance list", err, nil)
 	}
 
+	tickerChan := make(chan bool)
+	go func() {
+		for range time.Tick(checkForCompleteInstancesTick) {
+			tickerChan <- true
+		}
+	}()
+
 	for looping := true; looping; {
 		select {
 		case <-ctx.Done():
 			log.Debug("manageActiveInstanceEvents: loop ending (context done)", nil)
 			looping = false
-		case <-time.Tick(checkForCompleteInstancesTick):
+		case <-tickerChan:
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
 				stopTracking := false
