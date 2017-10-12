@@ -238,7 +238,7 @@ func main() {
 		Brokers:                   []string{"localhost:9092"},
 		ImportAPIAddr:             "http://localhost:21800",
 		DatasetAPIAddr:            "http://localhost:22000",
-		ShutdownTimeout:           10 * time.Second,
+		ShutdownTimeout:           5 * time.Second,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		logFatal("envconfig failed", err, nil)
