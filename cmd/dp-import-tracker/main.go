@@ -26,7 +26,7 @@ type config struct {
 	ImportAPIAuthToken        string        `envconfig:"IMPORT_API_AUTH_TOKEN"`
 	DatasetAPIAddr            string        `envconfig:"DATASET_API_ADDR"`
 	DatasetAPIAuthToken       string        `envconfig:"DATASET_API_AUTH_TOKEN"`
-	ShutdownTimeout           time.Duration `envconfig:"SHUTDOWN_TIMEOUT"`
+	ShutdownTimeout           time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                  string        `envconfig:"BIND_ADDR"`
 }
 
