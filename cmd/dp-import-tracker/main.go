@@ -12,9 +12,11 @@ import (
 
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/schema"
+	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
+	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -28,6 +30,7 @@ type config struct {
 	DatasetAPIAuthToken       string        `envconfig:"DATASET_API_AUTH_TOKEN"`
 	ShutdownTimeout           time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                  string        `envconfig:"BIND_ADDR"`
+	DatabaseAddress           string        `envconfig:"DATABASE_ADDRESS"`
 }
 
 type inputFileAvailable struct {
@@ -105,7 +108,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 	}
 	// check for 404 not found (empty importJobFromAPI)
 	if importJobFromAPI.JobID == "" {
-		return errors.New("API did not recognise jobID"), false
+		return errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID"), false
 	}
 
 	targetState := "completed"
@@ -140,7 +143,9 @@ func manageActiveInstanceEvents(
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
 	importAPI *api.ImportAPI,
-	instanceLoopDoneChan chan bool) {
+	instanceLoopDoneChan chan bool,
+	dbConn bolt.Conn,
+) {
 
 	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
@@ -172,24 +177,39 @@ func manageActiveInstanceEvents(
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
-					logData := log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount, "jobID": trackedInstances[instanceID].jobID}
-					log.Debug("import instance complete", logData)
-					log.Error(errors.New("TODO check db for actual count(insertedObservations) now that instance appears to be completed (kafka-double-counting?)"), nil)
-					// assume no error, i.e. that updating worked, so we can stopTracking
-					stopTracking = true
-					if err, isFatal = datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
-						logData["isFatal"] = isFatal
-						log.ErrorC("failed to set import instance state=completed", err, logData)
-						stopTracking = isFatal
-					} else if err, isFatal = CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
-						logData["isFatal"] = isFatal
-						log.ErrorC("failed to check import job when instance completed", err, logData)
-						stopTracking = isFatal
+					logData := log.Data{
+						"instanceID":         instanceID,
+						"observations":       trackedInstances[instanceID].observationsInsertedCount,
+						"total_observations": trackedInstances[instanceID].totalObservations,
+						"job_id":             trackedInstances[instanceID].jobID,
 					}
-				}
-				if stopTracking {
-					// no (or fatal) errors, so stop tracking the completed (or failed) instance
-					delete(trackedInstances, instanceID)
+					log.Debug("import instance possibly complete - will check db", logData)
+					// check db for actual count(insertedObservations) - avoid kafka-double-counting
+					countObservations, err := store.CountInsertedObservations(dbConn, instanceID)
+					if err != nil {
+						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
+					} else {
+						// assume no error, i.e. that updating works, so we can stopTracking
+						stopTracking = true
+						logData["db_count"] = countObservations
+						if countObservations != trackedInstances[instanceID].totalObservations {
+							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
+							stopTracking = false
+						} else if err, isFatal := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
+							logData["isFatal"] = isFatal
+							log.ErrorC("failed to set import instance state=completed", err, logData)
+							stopTracking = isFatal
+						} else if err, isFatal := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
+							logData["isFatal"] = isFatal
+							log.ErrorC("failed to check import job when instance completed", err, logData)
+							stopTracking = isFatal
+						}
+						if stopTracking {
+							// no (or fatal) errors, so stop tracking the completed (or failed) instance
+							delete(trackedInstances, instanceID)
+							log.Trace("db_count of inserted observations was expected total - marked completed, ceased monitoring", logData)
+						}
+					}
 				}
 			}
 		case newInstanceMsg := <-createInstanceChan:
@@ -237,8 +257,11 @@ func main() {
 		ObservationsInsertedTopic: "import-observations-inserted",
 		Brokers:                   []string{"localhost:9092"},
 		ImportAPIAddr:             "http://localhost:21800",
+		ImportAPIAuthToken:        "FD0108EA-825D-411C-9B1D-41EF7727F465",
 		DatasetAPIAddr:            "http://localhost:22000",
 		ShutdownTimeout:           5 * time.Second,
+		DatasetAPIAuthToken:       "FD0108EA-825D-411C-9B1D-41EF7727F465",
+		DatabaseAddress:           "bolt://localhost:7687",
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		logFatal("envconfig failed", err, nil)
@@ -263,6 +286,11 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
+	dbConnection, err := bolt.NewDriver().OpenNeo(cfg.DatabaseAddress)
+	if err != nil {
+		logFatal("could not obtain database connection", err, nil)
+	}
+
 	client := rchttp.DefaultClient
 	client.MaxRetries = 4
 
@@ -276,7 +304,7 @@ func main() {
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
 	instanceLoopEndedChan := make(chan bool)
-	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan)
+	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, dbConnection)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
@@ -370,6 +398,7 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		newInstanceEventConsumer.Close(shutdownContext)
+		dbConnection.Close()
 	})
 
 	// background httpServer shutdown

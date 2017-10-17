@@ -33,12 +33,12 @@ for the parent import job, if all other instances are also `completed`).
 | IMPORT_OBSERVATIONS_INSERTED_TOPIC    | `import-observations-inserted`                | topic name for numbers of inserted observations
 | KAFKA_ADDR                            | `localhost:9092`                              | A list of kafka brokers
 | IMPORT_API_ADDR                       | `http://localhost:21800`                      | The address of Import API
-| IMPORT_API_AUTH_TOKEN                 | _no default_                                  | Authentication token for access to import API
+| IMPORT_API_AUTH_TOKEN                 | "FD0108EA-825D-411C-9B1D-41EF7727F465"        | Authentication token for access to import API
 | DATASET_API_ADDR                      | `http://localhost:22000`                      | The address of Dataset API
-| DATASET_API_AUTH_TOKEN                | _no default_                                  | Authentication token for access to Dataset API
-| DB_ACCESS                             | `user=dp dbname=ImportJobs sslmode=disable`   | URL for Postgresql
+| DATASET_API_AUTH_TOKEN                | "FD0108EA-825D-411C-9B1D-41EF7727F465"        | Authentication token for access to Dataset API
 | BIND_ADDR                             | `:21300`                                      | address to listen on for healthcheck requests
 | GRACEFUL_SHUTDOWN_TIMEOUT             | `5s`                                          | how much grace time to allow when shutting down
+| DATABASE_ADDRESS                      | `bolt://localhost:7687`                       | The address of the database
 
 ### Contributing
 
