@@ -294,5 +294,6 @@ SUCCESS:
 	// assert: only get here when we have an error, which has been logged
 	observationsInsertedEventConsumer.Closer() <- true
 	newInstanceEventConsumer.Closer() <- true
+	dbConnection.Close()
 	logFatal("", errors.New("aborting after error"), nil)
 }
