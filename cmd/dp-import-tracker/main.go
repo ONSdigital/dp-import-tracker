@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rhttp"
+	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -21,6 +23,7 @@ type config struct {
 	ImportAPIAuthToken        string   `envconfig:"IMPORT_API_AUTH_TOKEN"`
 	DatasetAPIAddr            string   `envconfig:"DATASET_API_ADDR"`
 	DatasetAPIAuthToken       string   `envconfig:"DATASET_API_AUTH_TOKEN"`
+	DatabaseAddress           string   `envconfig:"DATABASE_ADDRESS"`
 }
 
 type inputFileAvailable struct {
@@ -42,6 +45,8 @@ type trackedInstance struct {
 type trackedInstanceList map[string]trackedInstance
 
 var checkForCompleteInstancesTick = time.Millisecond * 2000
+
+const countObservationsStmt = "MATCH (o:`_%s_observation`) RETURN COUNT(o)"
 
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
 func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(datasetAPI *api.DatasetAPI, instanceID string) error {
@@ -97,7 +102,7 @@ func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.Dat
 	}
 	// check for 404 not found (empty importJobFromAPI)
 	if importJobFromAPI.JobID == "" {
-		return errors.New("API did not recognise jobID")
+		return errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID")
 	}
 
 	targetState := "completed"
@@ -125,12 +130,31 @@ func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.Dat
 	return nil
 }
 
+func CountInsertedObservations(dbConn bolt.Conn, instanceID string) (count int64, err error) {
+	var rowCursor bolt.Rows
+	if rowCursor, err = dbConn.QueryNeo(fmt.Sprintf(countObservationsStmt, instanceID), nil); err != nil {
+		return
+	}
+	defer rowCursor.Close()
+	rows, _, err := rowCursor.All()
+	if err != nil {
+		return
+	}
+	var ok bool
+	if count, ok = rows[0][0].(int64); !ok {
+		return -1, errors.New("Did not get result from DB")
+	}
+	return
+}
+
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	createInstanceChan chan string,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
-	importAPI *api.ImportAPI) {
+	importAPI *api.ImportAPI,
+	dbConn bolt.Conn,
+) {
 
 	trackedInstances := make(trackedInstanceList)
 	if err := trackedInstances.getInstanceList(datasetAPI); err != nil {
@@ -172,19 +196,34 @@ func manageActiveInstanceEvents(
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID})
 
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
+					logData := log.Data{
+						"instanceID":         instanceID,
+						"observations":       trackedInstances[instanceID].observationsInsertedCount,
+						"total_observations": trackedInstances[instanceID].totalObservations,
+						"job_id":             trackedInstances[instanceID].jobID,
+					}
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
-					log.Debug("import instance complete", log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
-					log.Error(errors.New("TODO check db for actual count(insertedObservations) now that instance appears to be completed (kafka-double-counting?)"), nil)
-					if err := datasetAPI.UpdateInstanceState(instanceID, "completed"); err != nil {
-						log.ErrorC("failed to set import instance state=completed", err, log.Data{"instanceID": instanceID, "observations": trackedInstances[instanceID].observationsInsertedCount})
-					} else if err := CheckImportJobCompletionState(importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
-						log.ErrorC("failed to check import job when instance completed", err, log.Data{"instanceID": instanceID, "jobID": trackedInstances[instanceID].jobID})
-					} else {
-						// no errors, so stop tracking the completed instance
-						delete(trackedInstances, instanceID)
-					}
+					log.Debug("import instance possibly complete - will check db", logData)
 
+					// check db for actual count(insertedObservations) - avoid kafka-double-counting
+					countObservations, err := CountInsertedObservations(dbConn, instanceID)
+					if err != nil {
+						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
+					} else {
+						logData["db_count"] = countObservations
+						if countObservations != trackedInstances[instanceID].totalObservations {
+							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
+						} else if err := datasetAPI.UpdateInstanceState(instanceID, "completed"); err != nil {
+							log.ErrorC("failed to set import instance state=completed", err, logData)
+						} else if err := CheckImportJobCompletionState(importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
+							log.ErrorC("failed to check import job when instance completed", err, logData)
+						} else {
+							// no errors, so stop tracking the completed instance
+							delete(trackedInstances, instanceID)
+							log.Trace("db_count of inserted observations was expected total - marked completed, ceased monitoring", logData)
+						}
+					}
 				}
 			}
 		}
@@ -205,7 +244,10 @@ func main() {
 		ObservationsInsertedTopic: "import-observations-inserted",
 		Brokers:                   []string{"localhost:9092"},
 		ImportAPIAddr:             "http://localhost:21800",
+		ImportAPIAuthToken:        "FD0108EA-825D-411C-9B1D-41EF7727F465",
 		DatasetAPIAddr:            "http://localhost:22000",
+		DatasetAPIAuthToken:       "FD0108EA-825D-411C-9B1D-41EF7727F465",
+		DatabaseAddress:           "bolt://localhost:7687",
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		logFatal("gofigure failed", err, nil)
@@ -226,13 +268,18 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
+	dbConnection, err := bolt.NewDriver().OpenNeo(cfg.DatabaseAddress)
+	if err != nil {
+		logFatal("could not obtain database connection", err, nil)
+	}
+
 	client := rhttp.DefaultClient
 	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
 	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
-	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI)
+	go manageActiveInstanceEvents(createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, dbConnection)
 
 	// loop over consumers/producer(error) messages
 SUCCESS:
