@@ -2,12 +2,12 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/schema"
+	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rhttp"
@@ -45,8 +45,6 @@ type trackedInstance struct {
 type trackedInstanceList map[string]trackedInstance
 
 var checkForCompleteInstancesTick = time.Millisecond * 2000
-
-const countObservationsStmt = "MATCH (o:`_%s_observation`) RETURN COUNT(o)"
 
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
 func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(datasetAPI *api.DatasetAPI, instanceID string) error {
@@ -130,23 +128,6 @@ func CheckImportJobCompletionState(importAPI *api.ImportAPI, datasetAPI *api.Dat
 	return nil
 }
 
-func CountInsertedObservations(dbConn bolt.Conn, instanceID string) (count int64, err error) {
-	var rowCursor bolt.Rows
-	if rowCursor, err = dbConn.QueryNeo(fmt.Sprintf(countObservationsStmt, instanceID), nil); err != nil {
-		return
-	}
-	defer rowCursor.Close()
-	rows, _, err := rowCursor.All()
-	if err != nil {
-		return
-	}
-	var ok bool
-	if count, ok = rows[0][0].(int64); !ok {
-		return -1, errors.New("Did not get result from DB")
-	}
-	return
-}
-
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	createInstanceChan chan string,
@@ -207,7 +188,7 @@ func manageActiveInstanceEvents(
 					log.Debug("import instance possibly complete - will check db", logData)
 
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
-					countObservations, err := CountInsertedObservations(dbConn, instanceID)
+					countObservations, err := store.CountInsertedObservations(dbConn, instanceID)
 					if err != nil {
 						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
