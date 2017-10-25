@@ -58,20 +58,10 @@ func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (inst
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
 	jsonBody, httpCode, err := api.get(ctx, path, nil)
-	logData["httpCode"] = httpCode
-	if err == nil && httpCode != http.StatusOK {
-		err = errors.New("Bad response while getting dataset instance")
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-	} else if err != nil {
-		isFatal = true
-	}
-	if err != nil {
-		log.ErrorC("GetInstance get", err, logData)
+	logData["jsonBody"] = jsonBody
+	if err, isFatal = errorChecker("GetInstance", err, httpCode, &logData); err != nil {
 		return
 	}
-	logData["jsonBody"] = jsonBody
 
 	if err = json.Unmarshal(jsonBody, &instance); err != nil {
 		log.ErrorC("GetInstance unmarshall", err, logData)
@@ -85,20 +75,10 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 	path := api.url + "/instances"
 	logData := log.Data{"path": path}
 	jsonBody, httpCode, err := api.get(ctx, path, vars)
-	logData["httpCode"] = httpCode
-	if err == nil && httpCode != http.StatusOK {
-		err = errors.New("Bad response while getting dataset instances")
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-	} else if err != nil {
-		isFatal = true
-	}
-	if err != nil {
-		log.ErrorC("GetInstances get", err, logData)
+	logData["jsonBody"] = jsonBody
+	if err, isFatal = errorChecker("GetInstances", err, httpCode, &logData); err != nil {
 		return
 	}
-	logData["jsonBody"] = jsonBody
 
 	var instanceResults InstanceResults
 	if err = json.Unmarshal(jsonBody, &instanceResults); err != nil {
@@ -113,20 +93,8 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
 	jsonBody, httpCode, err := api.put(ctx, path, nil)
-	logData["httpCode"] = httpCode
 	logData["jsonBytes"] = jsonBody
-	if err == nil && httpCode != http.StatusOK {
-		err = errors.New("Bad response while updating inserts for job")
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-	} else if err != nil {
-		isFatal = true
-	}
-	if err != nil {
-		log.ErrorC("UpdateInstanceWithNewInserts err", err, logData)
-	}
-	return
+	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
@@ -136,18 +104,26 @@ func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID strin
 	jsonUpload := []byte(`{"state":"` + newState + `"}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonResult, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["httpCode"] = httpCode
 	logData["jsonResult"] = jsonResult
+	return errorChecker("UpdateInstanceState", err, httpCode, &logData)
+}
+
+func errorChecker(tag string, err error, httpCode int, logData *log.Data) (returned_error error, isFatal bool) {
+	(*logData)["httpCode"] = httpCode
 	if err == nil && httpCode != http.StatusOK {
+		// this error logged at end of func
+		returned_error = errors.New("Bad http response")
 		if httpCode < http.StatusInternalServerError {
 			isFatal = true
 		}
-		err = errors.New("Bad response while updating instance state")
 	} else if err != nil {
+		// this error logged at end of func
+		returned_error = err
 		isFatal = true
 	}
-	if err != nil {
-		log.ErrorC("UpdateInstanceState", err, logData)
+	if returned_error != nil {
+		(*logData)["is_fatal"] = isFatal
+		log.ErrorC(tag, returned_error, *logData)
 	}
 	return
 }

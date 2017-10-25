@@ -249,7 +249,7 @@ func main() {
 	log.Namespace = "dp-import-tracker"
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
 	cfg := config{
 		BindAddr:                  ":21300",

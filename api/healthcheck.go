@@ -34,5 +34,6 @@ func StopHealthCheck(ctx context.Context) {
 // HealthCheck returns the health of the application
 func healthCheck(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Healthcheck endpoint.", nil)
+	// TODO future story for implementing healthcheck endpoint properly
 	w.WriteHeader(http.StatusOK)
 }
