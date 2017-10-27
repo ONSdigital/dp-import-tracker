@@ -38,10 +38,18 @@ type inputFileAvailable struct {
 	InstanceID string `avro:"instance_id"`
 }
 
+type insertResult int
+
+const (
+	AllGood  insertResult = 0
+	ErrPerm  insertResult = 1
+	ErrRetry insertResult = 2
+)
+
 type insertedObservationsEvent struct {
-	InstanceID                   string    `json:"instance_id" avro:"instance_id"`
-	NumberOfObservationsInserted int32     `json:"number_of_inserted_observations" avro:"observations_inserted"`
-	DoneChan                     chan bool `avro:"-"`
+	InstanceID                   string            `json:"instance_id" avro:"instance_id"`
+	NumberOfObservationsInserted int32             `json:"number_of_inserted_observations" avro:"observations_inserted"`
+	DoneChan                     chan insertResult `json:"-" avro:"-"`
 }
 
 type trackedInstance struct {
@@ -224,13 +232,20 @@ func manageActiveInstanceEvents(
 			}
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
 			instanceID := updateObservationsInserted.InstanceID
+			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
+			logData := log.Data{"instance_id": instanceID, "observations_inserted": observationsInserted}
 			if _, ok := trackedInstances[instanceID]; !ok {
-				log.Info("warning: import instance not in tracked list for update", log.Data{"update": updateObservationsInserted})
+				log.Info("warning: import instance not in tracked list for update", logData)
 			}
-			log.Debug("updating import instance", log.Data{"update": updateObservationsInserted})
-			if err, isFatal := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, updateObservationsInserted.NumberOfObservationsInserted); err != nil {
-				log.ErrorC("failed to add inserts to instance", err, log.Data{"update": updateObservationsInserted})
-				updateObservationsInserted.DoneChan <- isFatal
+			log.Debug("updating import instance", logData)
+			if err, isFatal := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
+				logData["is_fatal"] = isFatal
+				log.ErrorC("failed to add inserts to instance", err, logData)
+				if isFatal {
+					updateObservationsInserted.DoneChan <- ErrPerm
+				} else {
+					updateObservationsInserted.DoneChan <- ErrRetry
+				}
 			} else {
 				close(updateObservationsInserted.DoneChan)
 			}
@@ -338,12 +353,13 @@ func main() {
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
 				if err := schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
-					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": insertedMessage})
+					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
-					insertedUpdate.DoneChan = make(chan bool)
+					insertedUpdate.DoneChan = make(chan insertResult)
 					updateInstanceWithObservationsInsertedChan <- insertedUpdate
-					if isFatal := <-insertedUpdate.DoneChan; !isFatal {
+					if insertRes := <-insertedUpdate.DoneChan; insertRes == ErrRetry {
 						// do not commit, update was non-fatal (will retry)
+						log.ErrorC("non-commit", errors.New("non-fatal error"), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 						continue
 					}
 				}
