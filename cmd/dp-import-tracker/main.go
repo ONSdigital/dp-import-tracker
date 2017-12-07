@@ -11,27 +11,14 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-import-tracker/api"
+	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import-tracker/schema"
 	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
 	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
-	"github.com/kelseyhightower/envconfig"
 )
-
-type config struct {
-	NewInstanceTopic          string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
-	ObservationsInsertedTopic string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
-	Brokers                   []string      `envconfig:"KAFKA_ADDR"`
-	ImportAPIAddr             string        `envconfig:"IMPORT_API_ADDR"`
-	ImportAPIAuthToken        string        `envconfig:"IMPORT_API_AUTH_TOKEN"`
-	DatasetAPIAddr            string        `envconfig:"DATASET_API_ADDR"`
-	DatasetAPIAuthToken       string        `envconfig:"DATASET_API_AUTH_TOKEN"`
-	ShutdownTimeout           time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
-	BindAddr                  string        `envconfig:"BIND_ADDR"`
-	DatabaseAddress           string        `envconfig:"DATABASE_ADDRESS"`
-}
 
 type inputFileAvailable struct {
 	FileURL    string `avro:"file_url"`
@@ -266,20 +253,9 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 
-	cfg := config{
-		BindAddr:                  ":21300",
-		NewInstanceTopic:          "input-file-available",
-		ObservationsInsertedTopic: "import-observations-inserted",
-		Brokers:                   []string{"localhost:9092"},
-		ImportAPIAddr:             "http://localhost:21800",
-		ImportAPIAuthToken:        "FD0108EA-825D-411C-9B1D-41EF7727F465",
-		DatasetAPIAddr:            "http://localhost:22000",
-		ShutdownTimeout:           5 * time.Second,
-		DatasetAPIAuthToken:       "FD0108EA-825D-411C-9B1D-41EF7727F465",
-		DatabaseAddress:           "bolt://localhost:7687",
-	}
-	if err := envconfig.Process("", &cfg); err != nil {
-		logFatal("envconfig failed", err, nil)
+	cfg, err := config.NewConfig()
+	if err != nil {
+		logFatal("config failed", err, nil)
 	}
 
 	log.Info("starting", log.Data{
