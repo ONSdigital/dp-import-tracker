@@ -17,7 +17,6 @@ import (
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
-	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
 )
 
 type inputFileAvailable struct {
@@ -139,7 +138,7 @@ func manageActiveInstanceEvents(
 	datasetAPI *api.DatasetAPI,
 	importAPI *api.ImportAPI,
 	instanceLoopDoneChan chan bool,
-	dbConn bolt.Conn,
+	store store.Storer,
 ) {
 
 	// inform main() when we have stopped processing events
@@ -180,7 +179,7 @@ func manageActiveInstanceEvents(
 					}
 					log.Debug("import instance possibly complete - will check db", logData)
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
-					countObservations, err := store.CountInsertedObservations(dbConn, instanceID)
+					countObservations, err := store.CountInsertedObservations(instanceID)
 					if err != nil {
 						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
@@ -277,7 +276,7 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
-	dbConnection, err := bolt.NewDriver().OpenNeo(cfg.DatabaseAddress)
+	store, err := store.New(cfg.DatabaseAddress, cfg.DatabasePoolSize)
 	if err != nil {
 		logFatal("could not obtain database connection", err, nil)
 	}
@@ -295,7 +294,7 @@ func main() {
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan string)
 	instanceLoopEndedChan := make(chan bool)
-	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, dbConnection)
+	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, store)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
@@ -390,7 +389,7 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		newInstanceEventConsumer.Close(shutdownContext)
-		dbConnection.Close()
+		store.Close(shutdownContext)
 	})
 
 	// background httpServer shutdown
