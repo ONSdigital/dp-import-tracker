@@ -44,13 +44,24 @@ func (s Storable) CountInsertedObservations(instanceID string) (count int64, err
 	if err != nil {
 		return 0, err
 	}
-	defer dbConn.Close()
+	defer func() {
+		if err := dbConn.Close(); err != nil {
+			log.ErrorC("Deferred dbConn.Close", err, nil)
+			panic(err)
+		}
+	}()
 
 	var rowCursor bolt.Rows
 	if rowCursor, err = dbConn.QueryNeo(fmt.Sprintf(countObservationsStmt, instanceID), nil); err != nil {
 		return
 	}
-	defer rowCursor.Close()
+	defer func() {
+		if err := rowCursor.Close(); err != nil {
+			log.ErrorC("Deferred rowCursor.Close", err, nil)
+			panic(err)
+		}
+	}()
+
 	rows, _, err := rowCursor.All()
 	if err != nil {
 		return
