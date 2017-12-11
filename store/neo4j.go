@@ -12,15 +12,18 @@ import (
 
 const countObservationsStmt = "MATCH (o:`_%s_observation`) RETURN COUNT(o)"
 
+// Storable hold data about this store
 type Storable struct {
 	pool bolt.ClosableDriverPool
 }
 
+// Storer is the interface to Storable objects
 type Storer interface {
 	Close(context.Context) error
 	CountInsertedObservations(string) (int64, error)
 }
 
+// New creates a Storable object
 func New(neoURL string, neoPoolSize int) (storable Storable, err error) {
 	pool, err := bolt.NewClosableDriverPool(neoURL, neoPoolSize)
 	if err != nil {
@@ -34,6 +37,7 @@ func New(neoURL string, neoPoolSize int) (storable Storable, err error) {
 	return
 }
 
+// Close closes the Storable object
 func (s Storable) Close(ctx context.Context) error {
 	err := s.pool.Close()
 	return err

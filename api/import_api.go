@@ -24,6 +24,7 @@ type ImportJob struct {
 	Links LinkMap `json:"links,ignoreempty"`
 }
 
+// LinkMap is an array of instance links associated with am import job
 type LinkMap struct {
 	Instances []InstanceLink `json:"instances"`
 }
@@ -44,12 +45,12 @@ func NewImportAPI(client *rchttp.Client, url, authToken string) *ImportAPI {
 }
 
 // GetImportJob asks the Import API for the details for an Import job
-func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (ImportJob, error, bool) {
+func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (ImportJob, bool, error) {
 	path := api.url + "/jobs/" + importJobID
 	logData := log.Data{"path": path, "importJobID": importJobID}
 	jsonBody, httpCode, err := api.get(ctx, path, 0, nil)
 	if httpCode == http.StatusNotFound {
-		return ImportJob{}, nil, false
+		return ImportJob{}, false, nil
 	}
 	logData["httpCode"] = httpCode
 	var isFatal bool
@@ -63,17 +64,17 @@ func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (Imp
 	}
 	if err != nil {
 		log.ErrorC("GetImportJob", err, logData)
-		return ImportJob{}, err, isFatal
+		return ImportJob{}, isFatal, err
 	}
 	logData["jsonBody"] = string(jsonBody)
 
 	var importJob ImportJob
 	if err := json.Unmarshal(jsonBody, &importJob); err != nil {
 		log.ErrorC("GetImportJob unmarshall", err, logData)
-		return ImportJob{}, err, true
+		return ImportJob{}, true, err
 	}
 
-	return importJob, nil, false
+	return importJob, false, nil
 }
 
 // UpdateImportJobState tells the Import API that the state has changed of an Import job

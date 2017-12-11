@@ -6,6 +6,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+// Config represents the app configuration
 type Config struct {
 	NewInstanceTopic          string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
 	ObservationsInsertedTopic string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
@@ -20,6 +21,7 @@ type Config struct {
 	DatabasePoolSize          int           `envconfig:"DATABASE_POOL_SIZE"`
 }
 
+// NewConfig creates the config object
 func NewConfig() (*Config, error) {
 	cfg := Config{
 		BindAddr:                  ":21300",

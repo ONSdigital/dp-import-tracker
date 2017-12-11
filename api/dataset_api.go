@@ -47,19 +47,19 @@ type InstanceLinks struct {
 	Job JobLinks `json:"job"`
 }
 
-// InstanceLink holds the id and a link to the resource
+// JobLinks holds the id and a link to the resource
 type JobLinks struct {
 	ID   string `json:"id"`
 	HRef string `json:"href"`
 }
 
 // GetInstance asks the Dataset API for the details for instanceID
-func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance Instance, err error, isFatal bool) {
+func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance Instance, isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"path": path, "instanceID": instanceID}
 	jsonBody, httpCode, err := api.get(ctx, path, nil)
 	logData["jsonBody"] = jsonBody
-	if err, isFatal = errorChecker("GetInstance", err, httpCode, &logData); err != nil {
+	if isFatal, err = errorChecker("GetInstance", err, httpCode, &logData); err != nil {
 		return
 	}
 
@@ -71,25 +71,25 @@ func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (inst
 }
 
 // GetInstances asks the Dataset API for all instances filtered by vars
-func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances []Instance, err error, isFatal bool) {
+func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances []Instance, isFatal bool, err error) {
 	path := api.url + "/instances"
 	logData := log.Data{"path": path}
 	jsonBody, httpCode, err := api.get(ctx, path, vars)
 	logData["jsonBody"] = jsonBody
-	if err, isFatal = errorChecker("GetInstances", err, httpCode, &logData); err != nil {
+	if isFatal, err = errorChecker("GetInstances", err, httpCode, &logData); err != nil {
 		return
 	}
 
 	var instanceResults InstanceResults
 	if err = json.Unmarshal(jsonBody, &instanceResults); err != nil {
 		log.ErrorC("GetInstances Unmarshal", err, logData)
-		return instances, err, true
+		return instances, true, err
 	}
-	return instanceResults.Items, nil, isFatal
+	return instanceResults.Items, isFatal, nil
 }
 
 // UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID
-func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (err error, isFatal bool) {
+func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
 	jsonBody, httpCode, err := api.put(ctx, path, nil)
@@ -98,7 +98,7 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
-func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) (err error, isFatal bool) {
+func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID
 	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"state":"` + newState + `"}`)
@@ -108,22 +108,22 @@ func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID strin
 	return errorChecker("UpdateInstanceState", err, httpCode, &logData)
 }
 
-func errorChecker(tag string, err error, httpCode int, logData *log.Data) (returned_error error, isFatal bool) {
+func errorChecker(tag string, err error, httpCode int, logData *log.Data) (isFatal bool, returnedError error) {
 	(*logData)["httpCode"] = httpCode
 	if err == nil && httpCode != http.StatusOK {
 		// this error logged at end of func
-		returned_error = errors.New("Bad http response")
+		returnedError = errors.New("Bad http response")
 		if httpCode < http.StatusInternalServerError {
 			isFatal = true
 		}
 	} else if err != nil {
 		// this error logged at end of func
-		returned_error = err
+		returnedError = err
 		isFatal = true
 	}
-	if returned_error != nil {
+	if returnedError != nil {
 		(*logData)["is_fatal"] = isFatal
-		log.ErrorC(tag, returned_error, *logData)
+		log.ErrorC(tag, returnedError, *logData)
 	}
 	return
 }

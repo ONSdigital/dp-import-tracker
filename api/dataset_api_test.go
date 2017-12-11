@@ -17,7 +17,7 @@ func TestGetInstance(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When no import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		instance, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
+		instance, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
 		So(instance, ShouldResemble, Instance{})
 		So(isFatal, ShouldBeTrue)
@@ -25,14 +25,14 @@ func TestGetInstance(t *testing.T) {
 
 	Convey("When bad json is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
+		_, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		_, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
+		_, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
@@ -42,7 +42,7 @@ func TestGetInstance(t *testing.T) {
 			MockedHTTPResponse{StatusCode: 200,
 				Body: `{"id":"iid","total_observations":1122,"total_inserted_observations":2233,"links":{"job":{"id":"jid1","href":"http://jid1"}},"state":"created"}`})
 
-		instance, err, isFatal := mockedAPI.GetInstance(ctx, instanceID)
+		instance, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldBeNil)
 		So(instance, ShouldResemble, Instance{
 			State:                     "created",
@@ -63,7 +63,7 @@ func TestGetInstance(t *testing.T) {
 func TestGetInstances(t *testing.T) {
 	Convey("When no import-instances are returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[]}`})
-		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
+		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldBeEmpty)
 		So(isFatal, ShouldBeFalse)
@@ -71,21 +71,21 @@ func TestGetInstances(t *testing.T) {
 
 	Convey("When bad json is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, err, isFatal := mockedAPI.GetInstances(ctx, nil)
+		_, isFatal, err := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: `{"items":[]}`})
-		_, err, isFatal := mockedAPI.GetInstances(ctx, nil)
+		_, isFatal, err := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"id":"iid","total_observations":1122}]}`})
-		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
+		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{Instance{InstanceID: "iid", NumberOfObservations: 1122}})
 		So(isFatal, ShouldBeFalse)
@@ -97,7 +97,7 @@ func TestGetInstances(t *testing.T) {
 			MockedHTTPResponse{StatusCode: 200,
 				Body: `{"items":[{"id":"iid","total_observations":1122},{"id":"iid2","total_observations":2234}]}`})
 
-		instances, err, isFatal := mockedAPI.GetInstances(ctx, nil)
+		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
 		So(err, ShouldBeNil)
 		So(instances, ShouldResemble, []Instance{
 			Instance{
@@ -117,21 +117,21 @@ func TestUpdateInstanceWithNewInserts(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When bad request is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		err, isFatal := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
 		So(err, ShouldBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
@@ -141,21 +141,21 @@ func TestUpdateInstanceState(t *testing.T) {
 	instanceID := "iid0"
 	Convey("When bad request is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
 	Convey("When server error is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		err, isFatal := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldBeNil)
 		So(isFatal, ShouldBeFalse)
 	})

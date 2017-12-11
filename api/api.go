@@ -60,7 +60,13 @@ func callAPI(
 		log.Debug("unexpected status code from API", logData)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		var err error
+		if err = resp.Body.Close(); err != nil {
+			log.ErrorC("closing body", err, nil)
+		}
+	}()
+
 	jsonBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.ErrorC("Failed to read body from API", err, logData)

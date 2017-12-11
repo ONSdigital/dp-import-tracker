@@ -27,8 +27,12 @@ type inputFileAvailable struct {
 type insertResult int
 
 const (
-	AllGood  insertResult = 0
-	ErrPerm  insertResult = 1
+	// this zero value reserved for positive outcome (default)
+	// AllGood  insertResult = 0
+
+	// ErrPerm is a permanent/fatal error
+	ErrPerm insertResult = 1
+	// ErrRetry indicates a retriable error
 	ErrRetry insertResult = 2
 )
 
@@ -49,15 +53,15 @@ type trackedInstanceList map[string]trackedInstance
 var checkForCompleteInstancesTick = time.Millisecond * 2000
 
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
-func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx context.Context, datasetAPI *api.DatasetAPI, instanceID string) (error, bool) {
-	instanceFromAPI, err, isFatal := datasetAPI.GetInstance(ctx, instanceID)
+func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx context.Context, datasetAPI *api.DatasetAPI, instanceID string) (bool, error) {
+	instanceFromAPI, isFatal, err := datasetAPI.GetInstance(ctx, instanceID)
 	if err != nil {
-		return err, isFatal
+		return isFatal, err
 	}
 	if instanceFromAPI.InstanceID == "" {
 		log.Debug("no such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
 		delete(trackedInstances, instanceID)
-		return nil, false
+		return false, nil
 	}
 
 	tempCopy := trackedInstances[instanceID]
@@ -73,14 +77,14 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 		tempCopy.jobID = importID
 	}
 	trackedInstances[instanceID] = tempCopy
-	return nil, false
+	return false, nil
 }
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
-func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context, api *api.DatasetAPI) (error, bool) {
-	instancesFromAPI, err, isFatal := api.GetInstances(ctx, url.Values{"state": []string{"submitted"}})
+func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context, api *api.DatasetAPI) (bool, error) {
+	instancesFromAPI, isFatal, err := api.GetInstances(ctx, url.Values{"state": []string{"submitted"}})
 	if err != nil {
-		return err, isFatal
+		return isFatal, err
 	}
 	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
@@ -91,18 +95,18 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 			jobID: instance.Links.Job.ID,
 		}
 	}
-	return nil, false
+	return false, nil
 }
 
 // CheckImportJobCompletionState checks all instances for given import job - if all completed, mark import as completed
-func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI, datasetAPI *api.DatasetAPI, jobID, completedInstanceID string) (error, bool) {
-	importJobFromAPI, err, isFatal := importAPI.GetImportJob(ctx, jobID)
+func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI, datasetAPI *api.DatasetAPI, jobID, completedInstanceID string) (bool, error) {
+	importJobFromAPI, isFatal, err := importAPI.GetImportJob(ctx, jobID)
 	if err != nil {
-		return err, isFatal
+		return isFatal, err
 	}
 	// check for 404 not found (empty importJobFromAPI)
 	if importJobFromAPI.JobID == "" {
-		return errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID"), false
+		return false, errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID")
 	}
 
 	targetState := "completed"
@@ -112,12 +116,12 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 			continue
 		}
 		// XXX TODO code below largely untested, and possibly subject to race conditions
-		instanceFromAPI, err, isFatal := datasetAPI.GetInstance(ctx, instanceRef.ID)
+		instanceFromAPI, isFatal, err := datasetAPI.GetInstance(ctx, instanceRef.ID)
 		if err != nil {
-			return err, isFatal
+			return isFatal, err
 		}
 		if instanceFromAPI.State != "completed" && instanceFromAPI.State != "error" {
-			return nil, false
+			return false, nil
 		}
 		if instanceFromAPI.State == "error" {
 			targetState = instanceFromAPI.State
@@ -127,7 +131,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
 		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
-	return nil, false
+	return false, nil
 }
 
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
@@ -145,7 +149,7 @@ func manageActiveInstanceEvents(
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
-	if err, _ := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
+	if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
 		logFatal("could not obtain initial instance list", err, nil)
 	}
 
@@ -164,8 +168,8 @@ func manageActiveInstanceEvents(
 		case <-tickerChan:
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
-				stopTracking := false
-				if err, isFatal := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
+				var stopTracking bool
+				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID, "isFatal": isFatal})
 					stopTracking = isFatal
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
@@ -189,11 +193,11 @@ func manageActiveInstanceEvents(
 						if countObservations != trackedInstances[instanceID].totalObservations {
 							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
 							stopTracking = false
-						} else if err, isFatal := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
+						} else if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
 							logData["isFatal"] = isFatal
 							log.ErrorC("failed to set import instance state=completed", err, logData)
 							stopTracking = isFatal
-						} else if err, isFatal := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
+						} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
 							logData["isFatal"] = isFatal
 							log.ErrorC("failed to check import job when instance completed", err, logData)
 							stopTracking = isFatal
@@ -224,7 +228,7 @@ func manageActiveInstanceEvents(
 				log.Info("warning: import instance not in tracked list for update", logData)
 			}
 			log.Debug("updating import instance", logData)
-			if err, isFatal := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
+			if isFatal, err := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
 				logData["is_fatal"] = isFatal
 				log.ErrorC("failed to add inserts to instance", err, logData)
 				if isFatal {
@@ -301,24 +305,25 @@ func main() {
 	mainLoopEndedChan := make(chan error)
 	go func() {
 		defer close(mainLoopEndedChan)
+		var err error
 
 		for looping := true; looping; {
 			select {
 			case <-mainContext.Done():
 				log.Debug("main loop aborting", log.Data{"ctx_err": mainContext.Err()})
 				looping = false
-			case err := <-observationsInsertedEventConsumer.Errors():
+			case err = <-observationsInsertedEventConsumer.Errors():
 				log.ErrorC("aborting after consumer error", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 				looping = false
-			case err := <-newInstanceEventConsumer.Errors():
+			case err = <-newInstanceEventConsumer.Errors():
 				log.ErrorC("aborting after consumer error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				looping = false
-			case err := <-httpServerDoneChan:
+			case err = <-httpServerDoneChan:
 				log.ErrorC("unexpected httpServer exit", err, nil)
 				looping = false
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
 				var newInstanceEvent inputFileAvailable
-				if err := schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
+				if err = schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
 					createInstanceChan <- newInstanceEvent.InstanceID
@@ -327,7 +332,7 @@ func main() {
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
-				if err := schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
+				if err = schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
 					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
@@ -372,29 +377,40 @@ func main() {
 
 	// tell the kafka consumers to stop receiving new messages, wait for mainLoopEndedChan, then consumers.Close
 	backgroundAndCount(&waitCount, reduceWaits, func() {
-		if err := observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+		var err error
+		if err = observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 		} else {
 			log.Debug("listen stopped", log.Data{"topic": cfg.ObservationsInsertedTopic})
 		}
 		<-mainLoopEndedChan
-		observationsInsertedEventConsumer.Close(shutdownContext)
+		if err = observationsInsertedEventConsumer.Close(shutdownContext); err != nil {
+			log.ErrorC("bad close", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
+		}
 	})
 	// repeat above for 2nd consumer
 	backgroundAndCount(&waitCount, reduceWaits, func() {
-		if err := newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+		var err error
+		if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 		} else {
 			log.Debug("listen stopped", log.Data{"topic": cfg.NewInstanceTopic})
 		}
 		<-mainLoopEndedChan
-		newInstanceEventConsumer.Close(shutdownContext)
-		store.Close(shutdownContext)
+		if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
+			log.ErrorC("bad close", err, log.Data{"topic": cfg.NewInstanceTopic})
+		}
+		if err = store.Close(shutdownContext); err != nil {
+			log.ErrorC("bad db close", err, nil)
+		}
 	})
 
 	// background httpServer shutdown
 	backgroundAndCount(&waitCount, reduceWaits, func() {
-		api.StopHealthCheck(shutdownContext)
+		var err error
+		if err = api.StopHealthCheck(shutdownContext); err != nil {
+			log.ErrorC("bad healthcheck close", err, nil)
+		}
 		<-httpServerDoneChan
 	})
 

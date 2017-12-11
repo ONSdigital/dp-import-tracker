@@ -11,6 +11,7 @@ import (
 
 var httpServer *server.Server
 
+// StartHealthCheck sets-up routes, listener
 func StartHealthCheck(bindAddr string, serverDone chan error) {
 	router := mux.NewRouter()
 	router.Path("/healthcheck").HandlerFunc(healthCheck)
@@ -27,11 +28,12 @@ func StartHealthCheck(bindAddr string, serverDone chan error) {
 	}()
 }
 
-func StopHealthCheck(ctx context.Context) {
-	httpServer.Shutdown(ctx)
+// StopHealthCheck shuts down the http listener
+func StopHealthCheck(ctx context.Context) error {
+	return httpServer.Shutdown(ctx)
 }
 
-// HealthCheck returns the health of the application
+// healthCheck returns the health of the application
 func healthCheck(w http.ResponseWriter, r *http.Request) {
 	log.Debug("Healthcheck endpoint.", nil)
 	// TODO future story for implementing healthcheck endpoint properly
