@@ -56,7 +56,7 @@ type JobLinks struct {
 // GetInstance asks the Dataset API for the details for instanceID
 func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance Instance, isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID
-	logData := log.Data{"path": path, "instanceID": instanceID}
+	logData := log.Data{"path": path, "instance_id": instanceID}
 	jsonBody, httpCode, err := api.get(ctx, path, nil)
 	logData["jsonBody"] = jsonBody
 	if isFatal, err = errorChecker("GetInstance", err, httpCode, &logData); err != nil {

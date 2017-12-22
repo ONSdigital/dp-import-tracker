@@ -45,15 +45,15 @@ func NewImportAPI(client *rchttp.Client, url, authToken string) *ImportAPI {
 }
 
 // GetImportJob asks the Import API for the details for an Import job
-func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (ImportJob, bool, error) {
+func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (importJob ImportJob, isFatal bool, err error) {
 	path := api.url + "/jobs/" + importJobID
-	logData := log.Data{"path": path, "importJobID": importJobID}
+	logData := log.Data{"path": path, "job_id": importJobID}
 	jsonBody, httpCode, err := api.get(ctx, path, 0, nil)
 	if httpCode == http.StatusNotFound {
-		return ImportJob{}, false, nil
+		err = nil
+		return
 	}
 	logData["httpCode"] = httpCode
-	var isFatal bool
 	if err == nil && httpCode != http.StatusOK {
 		if httpCode < http.StatusInternalServerError {
 			isFatal = true
@@ -64,17 +64,16 @@ func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (Imp
 	}
 	if err != nil {
 		log.ErrorC("GetImportJob", err, logData)
-		return ImportJob{}, isFatal, err
+		return
 	}
 	logData["jsonBody"] = string(jsonBody)
 
-	var importJob ImportJob
-	if err := json.Unmarshal(jsonBody, &importJob); err != nil {
+	if err = json.Unmarshal(jsonBody, &importJob); err != nil {
 		log.ErrorC("GetImportJob unmarshall", err, logData)
-		return ImportJob{}, true, err
+		isFatal = true
 	}
 
-	return importJob, false, nil
+	return
 }
 
 // UpdateImportJobState tells the Import API that the state has changed of an Import job

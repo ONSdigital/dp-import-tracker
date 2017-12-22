@@ -61,15 +61,14 @@ func TestGetImportJob(t *testing.T) {
 
 	Convey("When a single-instance import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobJSON})
-		job, isFatal, err := mockedAPI.GetImportJob(ctx, jobID)
+		job, _, err := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldBeNil)
 		So(job, ShouldResemble, ImportJob{JobID: jobID, Links: LinkMap{Instances: []InstanceLink{InstanceLink{ID: "iid1", Link: "iid1link"}}}})
-		So(isFatal, ShouldBeFalse)
 	})
 
 	Convey("When a multiple-instance import-job is returned", t, func() {
 		mockedAPI := getMockImportAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: jobMultiInstJSON})
-		job, isFatal, err := mockedAPI.GetImportJob(ctx, jobID)
+		job, _, err := mockedAPI.GetImportJob(ctx, jobID)
 		So(err, ShouldBeNil)
 		So(job, ShouldResemble, ImportJob{
 			JobID: jobID,
@@ -80,7 +79,6 @@ func TestGetImportJob(t *testing.T) {
 				},
 			},
 		})
-		So(isFatal, ShouldBeFalse)
 	})
 }
 

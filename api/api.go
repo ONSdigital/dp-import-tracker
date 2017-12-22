@@ -61,8 +61,7 @@ func callAPI(
 	}
 
 	defer func() {
-		var err error
-		if err = resp.Body.Close(); err != nil {
+		if err := resp.Body.Close(); err != nil {
 			log.ErrorC("closing body", err, nil)
 		}
 	}()

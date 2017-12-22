@@ -40,6 +40,7 @@ type insertedObservationsEvent struct {
 	InstanceID                   string            `json:"instance_id" avro:"instance_id"`
 	NumberOfObservationsInserted int32             `json:"number_of_inserted_observations" avro:"observations_inserted"`
 	DoneChan                     chan insertResult `json:"-" avro:"-"`
+	KafkaOffset                  int64             `json:"-" avro:"-"`
 }
 
 type trackedInstance struct {
@@ -50,6 +51,11 @@ type trackedInstance struct {
 
 type trackedInstanceList map[string]trackedInstance
 
+type newInstanceInfo struct {
+	InstanceID  string
+	KafkaOffset int64
+}
+
 var checkForCompleteInstancesTick = time.Millisecond * 2000
 
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
@@ -59,7 +65,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 		return isFatal, err
 	}
 	if instanceFromAPI.InstanceID == "" {
-		log.Debug("no such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
+		log.Debug("no such instance at API - removing from tracker", log.Data{"instance_id": instanceID})
 		delete(trackedInstances, instanceID)
 		return false, nil
 	}
@@ -129,7 +135,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
-		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
+		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"job_id": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return false, nil
 }
@@ -137,7 +143,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	ctx context.Context,
-	createInstanceChan chan string,
+	createInstanceChan chan newInstanceInfo,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
 	importAPI *api.ImportAPI,
@@ -170,13 +176,13 @@ func manageActiveInstanceEvents(
 			for instanceID := range trackedInstances {
 				var stopTracking bool
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
-					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID, "isFatal": isFatal})
+					log.ErrorC("could not update instance", err, log.Data{"instance_id": instanceID, "is_fatal": isFatal})
 					stopTracking = isFatal
 				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
 					logData := log.Data{
-						"instanceID":         instanceID,
+						"instance_id":        instanceID,
 						"observations":       trackedInstances[instanceID].observationsInsertedCount,
 						"total_observations": trackedInstances[instanceID].totalObservations,
 						"job_id":             trackedInstances[instanceID].jobID,
@@ -194,11 +200,11 @@ func manageActiveInstanceEvents(
 							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
 							stopTracking = false
 						} else if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
-							logData["isFatal"] = isFatal
+							logData["is_fatal"] = isFatal
 							log.ErrorC("failed to set import instance state=completed", err, logData)
 							stopTracking = isFatal
 						} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
-							logData["isFatal"] = isFatal
+							logData["is_fatal"] = isFatal
 							log.ErrorC("failed to check import job when instance completed", err, logData)
 							stopTracking = isFatal
 						}
@@ -211,19 +217,23 @@ func manageActiveInstanceEvents(
 				}
 			}
 		case newInstanceMsg := <-createInstanceChan:
-			if _, ok := trackedInstances[newInstanceMsg]; ok {
-				log.Error(errors.New("import instance exists"), log.Data{"instanceID": newInstanceMsg})
+			if _, ok := trackedInstances[newInstanceMsg.InstanceID]; ok {
+				log.Error(errors.New("import instance exists"), log.Data{"instance_id": newInstanceMsg.InstanceID, "kafka_offset": newInstanceMsg.KafkaOffset})
 				continue
 			}
-			log.Debug("new import instance", log.Data{"instanceID": newInstanceMsg})
-			trackedInstances[newInstanceMsg] = trackedInstance{
+			log.Debug("new import instance", log.Data{"instance_id": newInstanceMsg.InstanceID, "kafka_offset": newInstanceMsg.KafkaOffset})
+			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
 			}
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
 			instanceID := updateObservationsInserted.InstanceID
 			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
-			logData := log.Data{"instance_id": instanceID, "observations_inserted": observationsInserted}
+			logData := log.Data{
+				"instance_id":           instanceID,
+				"observations_inserted": observationsInserted,
+				"kafka_offset":          updateObservationsInserted.KafkaOffset,
+			}
 			if _, ok := trackedInstances[instanceID]; !ok {
 				log.Info("warning: import instance not in tracked list for update", logData)
 			}
@@ -296,7 +306,7 @@ func main() {
 
 	// create instance event handler
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
-	createInstanceChan := make(chan string)
+	createInstanceChan := make(chan newInstanceInfo)
 	instanceLoopEndedChan := make(chan bool)
 	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, store)
 
@@ -324,22 +334,25 @@ func main() {
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
 				var newInstanceEvent inputFileAvailable
 				if err = schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
-					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
+					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic, "kafka_offset": newInstanceMessage.Offset()})
 				} else {
-					createInstanceChan <- newInstanceEvent.InstanceID
+					createInstanceChan <- newInstanceInfo{InstanceID: newInstanceEvent.InstanceID, KafkaOffset: newInstanceMessage.Offset()}
 				}
 				newInstanceMessage.Commit()
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
-				var insertedUpdate insertedObservationsEvent
+				insertedUpdate := insertedObservationsEvent{
+					KafkaOffset: insertedMessage.Offset(),
+				}
 				msg := insertedMessage.GetData()
+				logData := log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg), "kafka_offset": insertedMessage.Offset()}
 				if err = schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
-					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+					log.ErrorC("unmarshal error", err, logData)
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
 					updateInstanceWithObservationsInsertedChan <- insertedUpdate
 					if insertRes := <-insertedUpdate.DoneChan; insertRes == ErrRetry {
 						// do not commit, update was non-fatal (will retry)
-						log.ErrorC("non-commit", errors.New("non-fatal error"), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+						log.ErrorC("non-commit", errors.New("non-fatal error"), logData)
 						continue
 					}
 				}
