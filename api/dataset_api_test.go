@@ -147,30 +147,6 @@ func TestUpdateInstanceWithNewInserts(t *testing.T) {
 	})
 }
 
-func TestUpdateInstanceState(t *testing.T) {
-	instanceID := "iid0"
-	Convey("When bad request is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeTrue)
-	})
-
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-}
-
 func getMockDatasetAPI(expectRequest http.Request, mockedHTTPResponse MockedHTTPResponse) *DatasetAPI {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != expectRequest.Method {

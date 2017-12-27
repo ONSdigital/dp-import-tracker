@@ -97,17 +97,6 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
 }
 
-// UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
-func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"state":"` + newState + `"}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["jsonResult"] = jsonResult
-	return errorChecker("UpdateInstanceState", err, httpCode, &logData)
-}
-
 func errorChecker(tag string, err error, httpCode int, logData *log.Data) (isFatal bool, returnedError error) {
 	(*logData)["httpCode"] = httpCode
 	if err == nil && httpCode != http.StatusOK {
