@@ -11,7 +11,7 @@ their associated/parent import job) as completed.
 * Also, listen for `IMPORT_OBSERVATIONS_INSERTED_TOPIC` events,
 and inform the Dataset API with those additional numbers of inserted observations.
 
-* Regularly check the [Dataset API](../dp-import-api) for the total number of observations,
+* Regularly check the [Dataset API](../dp-dataset-api) for the total number of observations,
 and the current count of inserted observations.  When the total has been
 inserted, mark the **status** of the instance as `completed` (and similar
 for the parent import job, if all other instances are also `completed`).
@@ -32,8 +32,6 @@ for the parent import job, if all other instances are also `completed`).
 | INPUT_FILE_AVAILABLE_TOPIC            | `input-file-available`                        | topic name for import file available events
 | IMPORT_OBSERVATIONS_INSERTED_TOPIC    | `import-observations-inserted`                | topic name for numbers of inserted observations
 | KAFKA_ADDR                            | `localhost:9092`                              | A list of kafka brokers
-| IMPORT_API_ADDR                       | `http://localhost:21800`                      | The address of Import API
-| IMPORT_API_AUTH_TOKEN                 | "FD0108EA-825D-411C-9B1D-41EF7727F465"        | Authentication token for access to import API
 | DATASET_API_ADDR                      | `http://localhost:22000`                      | The address of Dataset API
 | DATASET_API_AUTH_TOKEN                | "FD0108EA-825D-411C-9B1D-41EF7727F465"        | Authentication token for access to Dataset API
 | BIND_ADDR                             | `:21300`                                      | address to listen on for healthcheck requests
