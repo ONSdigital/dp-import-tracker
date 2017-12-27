@@ -9,9 +9,19 @@ import (
 	"net/http/httptest"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/ONSdigital/go-ns/rchttp"
 )
 
 var ctx = context.Background()
+
+var (
+	client = &rchttp.Client{HTTPClient: &http.Client{}}
+)
+
+type MockedHTTPResponse struct {
+	StatusCode int
+	Body       string
+}
 
 func TestGetInstance(t *testing.T) {
 	instanceID := "iid0"
