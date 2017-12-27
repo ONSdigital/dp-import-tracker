@@ -13,7 +13,7 @@ var inputFileAvailable = `{
 
 // InputFileAvailableSchema is the Avro schema for each
 // input file that becomes available
-var InputFileAvailableSchema *avro.Schema = &avro.Schema{
+var InputFileAvailableSchema = &avro.Schema{
 	Definition: inputFileAvailable,
 }
 
@@ -28,6 +28,19 @@ var observationsInsertedEvent = `{
 }`
 
 // ObservationsInsertedEvent is the Avro schema for each observation batch inserted.
-var ObservationsInsertedEvent avro.Schema = avro.Schema{
+var ObservationsInsertedEvent = avro.Schema{
 	Definition: observationsInsertedEvent,
+}
+
+var observationImportCompleteEvent = `{
+  "type": "record",
+  "name": "observations-import-complete",
+  "fields": [
+    {"name": "instance_id", "type": "string"}
+  ]
+}`
+
+// ObservationImportCompleteEvent is the Avro schema used when all observations have been imported.
+var ObservationImportCompleteEvent = avro.Schema{
+	Definition: observationImportCompleteEvent,
 }

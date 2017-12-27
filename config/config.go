@@ -8,15 +8,16 @@ import (
 
 // Config represents the app configuration
 type Config struct {
-	NewInstanceTopic          string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
-	ObservationsInsertedTopic string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
-	Brokers                   []string      `envconfig:"KAFKA_ADDR"`
-	DatasetAPIAddr            string        `envconfig:"DATASET_API_ADDR"`
-	DatasetAPIAuthToken       string        `envconfig:"DATASET_API_AUTH_TOKEN"`
-	ShutdownTimeout           time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
-	BindAddr                  string        `envconfig:"BIND_ADDR"`
-	DatabaseAddress           string        `envconfig:"DATABASE_ADDRESS"`
-	DatabasePoolSize          int           `envconfig:"DATABASE_POOL_SIZE"`
+	NewInstanceTopic               string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
+	ObservationsInsertedTopic      string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
+	ObservationImportCompleteTopic string        `envconfig:"OBSERVATION_IMPORT_COMPLETE_TOPIC"`
+	Brokers                        []string      `envconfig:"KAFKA_ADDR"`
+	DatasetAPIAddr                 string        `envconfig:"DATASET_API_ADDR"`
+	DatasetAPIAuthToken            string        `envconfig:"DATASET_API_AUTH_TOKEN"`
+	ShutdownTimeout                time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
+	BindAddr                       string        `envconfig:"BIND_ADDR"`
+	DatabaseAddress                string        `envconfig:"DATABASE_ADDRESS"`
+	DatabasePoolSize               int           `envconfig:"DATABASE_POOL_SIZE"`
 }
 
 // NewConfig creates the config object
@@ -25,6 +26,7 @@ func NewConfig() (*Config, error) {
 		BindAddr:                  ":21300",
 		NewInstanceTopic:          "input-file-available",
 		ObservationsInsertedTopic: "import-observations-inserted",
+		ObservationImportCompleteTopic: "observation-import-complete",
 		Brokers:                   []string{"localhost:9092"},
 		DatasetAPIAddr:            "http://localhost:22000",
 		ShutdownTimeout:           5 * time.Second,
