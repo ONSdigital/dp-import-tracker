@@ -20,11 +20,6 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/instance"
 )
 
-type inputFileAvailable struct {
-	FileURL    string `avro:"file_url"`
-	InstanceID string `avro:"instance_id"`
-}
-
 type insertResult int
 
 const (
@@ -295,7 +290,7 @@ func main() {
 				log.ErrorC("unexpected httpServer exit", err, nil)
 				looping = false
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
-				var newInstanceEvent inputFileAvailable
+				var newInstanceEvent instance.InputFileAvailableEvent
 				if err = schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
