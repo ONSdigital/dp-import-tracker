@@ -226,11 +226,8 @@ func main() {
 		logFatal("config failed", err, nil)
 	}
 
-	log.Info("starting", log.Data{
-		"new-import-topic":        cfg.NewInstanceTopic,
-		"completed-inserts-topic": cfg.ObservationsInsertedTopic,
-		"dataset-api":             cfg.DatasetAPIAddr,
-	})
+	// sensitive fields are omitted from config.String().
+	log.Debug("loaded config", log.Data{"config": cfg})
 
 	httpServerDoneChan := make(chan error)
 	api.StartHealthCheck(cfg.BindAddr, httpServerDoneChan)

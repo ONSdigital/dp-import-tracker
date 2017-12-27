@@ -4,19 +4,21 @@ import (
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
+	"encoding/json"
 )
 
 // Config represents the app configuration
+// omit sensitive fields from logs using json:"-"
 type Config struct {
 	NewInstanceTopic               string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
 	ObservationsInsertedTopic      string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
 	ObservationImportCompleteTopic string        `envconfig:"OBSERVATION_IMPORT_COMPLETE_TOPIC"`
 	Brokers                        []string      `envconfig:"KAFKA_ADDR"`
 	DatasetAPIAddr                 string        `envconfig:"DATASET_API_ADDR"`
-	DatasetAPIAuthToken            string        `envconfig:"DATASET_API_AUTH_TOKEN"`
+	DatasetAPIAuthToken            string        `envconfig:"DATASET_API_AUTH_TOKEN" json:"-"`
 	ShutdownTimeout                time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                       string        `envconfig:"BIND_ADDR"`
-	DatabaseAddress                string        `envconfig:"DATABASE_ADDRESS"`
+	DatabaseAddress                string        `envconfig:"DATABASE_ADDRESS" json:"-"`
 	DatabasePoolSize               int           `envconfig:"DATABASE_POOL_SIZE"`
 }
 
@@ -39,4 +41,11 @@ func NewConfig() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// String is implemented to prevent sensitive fields being logged.
+// The config is returned as JSON with sensitive fields omitted.
+func (config Config) String() string {
+	json, _ := json.Marshal(config)
+	return string(json)
 }
