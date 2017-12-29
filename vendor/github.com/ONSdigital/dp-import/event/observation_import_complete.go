@@ -4,6 +4,7 @@ import "github.com/ONSdigital/go-ns/avro"
 
 // ObservationImportCompleteEvent is used to notify that all observations of an instance have been imported.
 type ObservationImportComplete struct {
+	JobID      string `avro:"job_id"`
 	InstanceID string `avro:"instance_id"`
 }
 
@@ -20,4 +21,3 @@ var observationImportCompleteSchema = `{
 var ObservationImportCompleteSchema = avro.Schema{
 	Definition: observationImportCompleteSchema,
 }
-

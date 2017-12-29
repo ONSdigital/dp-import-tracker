@@ -148,7 +148,7 @@ func manageActiveInstanceEvents(
 						if countObservations != trackedInstances[instanceID].totalObservations {
 							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
 							stopTracking = false
-						} else if err := produceImportCompleteEvent(instanceID, importCompleteProducer); err != nil {
+						} else if err := produceImportCompleteEvent(trackedInstances[instanceID].jobID, instanceID, importCompleteProducer); err != nil {
 							log.ErrorC("failed to produce import complete event", err, logData)
 						}
 
@@ -197,9 +197,10 @@ func manageActiveInstanceEvents(
 	log.Info("Instance loop completed", nil)
 }
 
-func produceImportCompleteEvent(instanceID string, importCompleteProducer kafka.Producer) error {
+func produceImportCompleteEvent(jobID, instanceID string, importCompleteProducer kafka.Producer) error {
 
 	completeEvent := &event.ObservationImportComplete{
+		JobID:      jobID,
 		InstanceID: instanceID,
 	}
 
