@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http/httptest"
 
-	. "github.com/smartystreets/goconvey/convey"
 	"github.com/ONSdigital/go-ns/rchttp"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 var ctx = context.Background()

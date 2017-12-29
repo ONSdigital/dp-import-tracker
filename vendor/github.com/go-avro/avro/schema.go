@@ -1025,7 +1025,7 @@ func schemaByType(i interface{}, registry map[string]Schema, namespace string) (
 		return parseUnionSchema(v, registry, namespace)
 	}
 
-	return nil, ErrInvalidSchema
+	return nil, InvalidSchema
 }
 
 func parseEnumSchema(v map[string]interface{}, registry map[string]Schema, namespace string) (Schema, error) {
@@ -1045,7 +1045,7 @@ func parseEnumSchema(v map[string]interface{}, registry map[string]Schema, names
 func parseFixedSchema(v map[string]interface{}, registry map[string]Schema, namespace string) (Schema, error) {
 	size, ok := v[schemaSizeField].(float64)
 	if !ok {
-		return nil, ErrInvalidFixedSize
+		return nil, InvalidFixedSize
 	}
 
 	schema := &FixedSchema{Name: v[schemaNameField].(string), Size: int(size), Properties: getProperties(v)}
@@ -1124,7 +1124,7 @@ func parseSchemaField(i interface{}, registry map[string]Schema, namespace strin
 		return schemaField, nil
 	}
 
-	return nil, ErrInvalidSchema
+	return nil, InvalidSchema
 }
 
 func setOptionalField(where *string, v map[string]interface{}, fieldName string) {

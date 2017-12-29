@@ -3,8 +3,8 @@ package config
 import (
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
 	"encoding/json"
+	"github.com/kelseyhightower/envconfig"
 )
 
 // Config represents the app configuration
@@ -25,16 +25,16 @@ type Config struct {
 // NewConfig creates the config object
 func NewConfig() (*Config, error) {
 	cfg := Config{
-		BindAddr:                  ":21300",
-		NewInstanceTopic:          "input-file-available",
-		ObservationsInsertedTopic: "import-observations-inserted",
+		BindAddr:                       ":21300",
+		NewInstanceTopic:               "input-file-available",
+		ObservationsInsertedTopic:      "import-observations-inserted",
 		ObservationImportCompleteTopic: "observation-import-complete",
-		Brokers:                   []string{"localhost:9092"},
-		DatasetAPIAddr:            "http://localhost:22000",
-		ShutdownTimeout:           5 * time.Second,
-		DatasetAPIAuthToken:       "FD0108EA-825D-411C-9B1D-41EF7727F465",
-		DatabaseAddress:           "bolt://localhost:7687",
-		DatabasePoolSize:          30,
+		Brokers:             []string{"localhost:9092"},
+		DatasetAPIAddr:      "http://localhost:22000",
+		ShutdownTimeout:     5 * time.Second,
+		DatasetAPIAuthToken: "FD0108EA-825D-411C-9B1D-41EF7727F465",
+		DatabaseAddress:     "bolt://localhost:7687",
+		DatabasePoolSize:    30,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
