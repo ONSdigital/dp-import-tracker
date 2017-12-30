@@ -204,6 +204,8 @@ func produceImportCompleteEvent(jobID, instanceID string, importCompleteProducer
 		InstanceID: instanceID,
 	}
 
+	log.Debug("instance import complete, sending event message", log.Data{"event": completeEvent})
+
 	bytes, err := events.ObservationImportCompleteSchema.Marshal(completeEvent)
 	if err != nil {
 		return err
