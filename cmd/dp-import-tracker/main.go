@@ -13,7 +13,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import-tracker/store"
-	"github.com/ONSdigital/dp-import/event"
+	"github.com/ONSdigital/dp-import/events"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
@@ -93,7 +93,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	ctx context.Context,
-	createInstanceChan chan event.InputFileAvailable,
+	createInstanceChan chan events.InputFileAvailable,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
 	instanceLoopDoneChan chan bool,
@@ -199,12 +199,12 @@ func manageActiveInstanceEvents(
 
 func produceImportCompleteEvent(jobID, instanceID string, importCompleteProducer kafka.Producer) error {
 
-	completeEvent := &event.ObservationImportComplete{
+	completeEvent := &events.ObservationImportComplete{
 		JobID:      jobID,
 		InstanceID: instanceID,
 	}
 
-	bytes, err := event.ObservationImportCompleteSchema.Marshal(completeEvent)
+	bytes, err := events.ObservationImportCompleteSchema.Marshal(completeEvent)
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func main() {
 
 	// create instance event handler
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
-	createInstanceChan := make(chan event.InputFileAvailable)
+	createInstanceChan := make(chan events.InputFileAvailable)
 	instanceLoopEndedChan := make(chan bool)
 	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, instanceLoopEndedChan, store, observationImportCompleteProducer)
 
@@ -292,8 +292,8 @@ func main() {
 				log.ErrorC("unexpected httpServer exit", err, nil)
 				looping = false
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
-				var newInstanceEvent event.InputFileAvailable
-				if err = event.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
+				var newInstanceEvent events.InputFileAvailable
+				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
 					createInstanceChan <- newInstanceEvent
@@ -302,7 +302,7 @@ func main() {
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
-				if err = event.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
+				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
 					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
