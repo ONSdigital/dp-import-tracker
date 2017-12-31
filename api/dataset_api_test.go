@@ -8,10 +8,20 @@ import (
 	"fmt"
 	"net/http/httptest"
 
+	"github.com/ONSdigital/go-ns/rchttp"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var ctx = context.Background()
+
+var (
+	client = &rchttp.Client{HTTPClient: &http.Client{}}
+)
+
+type MockedHTTPResponse struct {
+	StatusCode int
+	Body       string
+}
 
 func TestGetInstance(t *testing.T) {
 	instanceID := "iid0"
@@ -132,30 +142,6 @@ func TestUpdateInstanceWithNewInserts(t *testing.T) {
 	Convey("When a single import-instance is returned", t, func() {
 		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
 		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
-		So(err, ShouldBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-}
-
-func TestUpdateInstanceState(t *testing.T) {
-	instanceID := "iid0"
-	Convey("When bad request is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeTrue)
-	})
-
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
 		So(err, ShouldBeNil)
 		So(isFatal, ShouldBeFalse)
 	})

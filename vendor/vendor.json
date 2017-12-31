@@ -3,10 +3,16 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "dAmJlE3xDAUwYltpunrmevH6gVI=",
+			"path": "github.com/ONSdigital/dp-import/events",
+			"revision": "0c39d23704155bafa36af8cb5744f751f7a2b7a9",
+			"revisionTime": "2017-12-30T07:23:56Z"
+		},
+		{
 			"checksumSHA1": "WI5P8MbnHHGqzuQje+qFoQSUHgk=",
 			"path": "github.com/ONSdigital/go-ns/avro",
-			"revision": "c45be7d1a146fdaf45f65304f09c7952a9aaf2cb",
-			"revisionTime": "2017-12-08T11:11:03Z"
+			"revision": "02d3d2f2e96f4d8583192a90d6c8e6932d8ff7b6",
+			"revisionTime": "2017-12-21T09:34:27Z"
 		},
 		{
 			"checksumSHA1": "J9OiPnhPHFPhQ+R+dq6LFj+dTxE=",
@@ -117,10 +123,11 @@
 			"revisionTime": "2016-08-05T00:47:13Z"
 		},
 		{
-			"checksumSHA1": "FP4nR2bl0P0Bg6yzeaB0DxhSkns=",
+			"checksumSHA1": "I6MnUzkLJt+sh73CodD0NKswFrs=",
+			"origin": "github.com/ONSdigital/go-ns/vendor/github.com/go-avro/avro",
 			"path": "github.com/go-avro/avro",
-			"revision": "3f67a235f1dfdb74d4065f716e03676ac40eb1e6",
-			"revisionTime": "2017-09-27T03:53:16Z"
+			"revision": "02d3d2f2e96f4d8583192a90d6c8e6932d8ff7b6",
+			"revisionTime": "2017-12-21T09:34:27Z"
 		},
 		{
 			"checksumSHA1": "p/8vSviYF91gFflhrt5vkyksroo=",
@@ -236,12 +243,6 @@
 			"path": "github.com/smartystreets/goconvey/convey/reporting",
 			"revision": "e5b2b7c9111590d019a696c7800593f666e1a7f4",
 			"revisionTime": "2017-08-25T22:14:26Z"
-		},
-		{
-			"checksumSHA1": "DtMSjAYF3qQVgNVsdsWax7VzmGk=",
-			"path": "github.com/smartystreets/logging",
-			"revision": "ac3a674540761aa0b4382094ba4795f917e85c7f",
-			"revisionTime": "2016-08-01T17:25:37Z"
 		},
 		{
 			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",

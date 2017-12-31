@@ -13,10 +13,10 @@ import (
 // terms of the Apache license, see LICENSE for details.
 // ***********************
 
-// Unmarshaler is an interface that may be implemented to avoid using runtime reflection during deserialization.
+// Reader is an interface that may be implemented to avoid using runtime reflection during deserialization.
 // Implementing it is optional and may be used as an optimization. Falls back to using reflection if not implemented.
-type Unmarshaler interface {
-	UnmarshalAvro(dec Decoder) error
+type Reader interface {
+	Read(dec Decoder) error
 }
 
 // DatumReader is an interface that is responsible for reading structured data according to schema from a decoder
@@ -106,8 +106,8 @@ func (reader *SpecificDatumReader) SetSchema(schema Schema) {
 // your struct field as follows: SomeValue int32 `avro:"some_field"`).
 // May return an error indicating a read failure.
 func (reader *SpecificDatumReader) Read(v interface{}, dec Decoder) error {
-	if reader, ok := v.(Unmarshaler); ok {
-		return reader.UnmarshalAvro(dec)
+	if reader, ok := v.(Reader); ok {
+		return reader.Read(dec)
 	}
 
 	rv := reflect.ValueOf(v)
@@ -115,7 +115,7 @@ func (reader *SpecificDatumReader) Read(v interface{}, dec Decoder) error {
 		return errors.New("Not applicable for non-pointer types or nil")
 	}
 	if reader.schema == nil {
-		return ErrSchemaNotSet
+		return SchemaNotSet
 	}
 	return reader.fillRecord(reader.schema, rv, dec)
 }
@@ -401,7 +401,7 @@ func (reader *GenericDatumReader) Read(v interface{}, dec Decoder) error {
 	}
 	rv = rv.Elem()
 	if reader.schema == nil {
-		return ErrSchemaNotSet
+		return SchemaNotSet
 	}
 
 	//read the value
@@ -579,7 +579,7 @@ func (reader *GenericDatumReader) mapUnion(field Schema, dec Decoder) (interface
 		return reader.readValue(union, dec)
 	}
 
-	return nil, ErrUnionTypeOverflow
+	return nil, UnionTypeOverflow
 }
 
 func (reader *GenericDatumReader) mapFixed(field Schema, dec Decoder) ([]byte, error) {

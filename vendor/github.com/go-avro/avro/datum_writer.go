@@ -12,10 +12,10 @@ import (
 // terms of the Apache license, see LICENSE for details.
 // ***********************
 
-// Marshaler is an interface that may be implemented to avoid using runtime reflection during serialization.
+// Writer is an interface that may be implemented to avoid using runtime reflection during serialization.
 // Implementing it is optional and may be used as an optimization. Falls back to using reflection if not implemented.
-type Marshaler interface {
-	MarshalAvro(enc Encoder) error
+type Writer interface {
+	Write(enc Encoder) error
 }
 
 // DatumWriter is an interface that is responsible for writing structured data according to schema to an encoder.
@@ -23,44 +23,12 @@ type DatumWriter interface {
 	// Write writes a single entry using this DatumWriter according to provided Schema.
 	// Accepts a value to write and Encoder to write to.
 	// May return an error indicating a write failure.
-	Write(obj interface{}, enc Encoder) error
+	Write(interface{}, Encoder) error
+
+	// Sets the schema for this DatumWriter to know the data structure.
+	// Note that it must be called before calling Write.
+	SetSchema(Schema)
 }
-
-func NewDatumWriter(schema Schema) DatumWriter {
-	if schema == nil {
-		panic("NewDatumWriter: Must provide a non-nil schema.")
-	}
-
-	return &anyDatumWriter{
-		sdr: SpecificDatumWriter{schema: schema},
-		gdr: GenericDatumWriter{schema: schema},
-	}
-}
-
-type anyDatumWriter struct {
-	sdr SpecificDatumWriter
-	gdr GenericDatumWriter
-}
-
-var errNilWrite = errors.New("DatumWriter.Write: provided a nil GenericRecord")
-
-func (w *anyDatumWriter) Write(obj interface{}, enc Encoder) error {
-	switch v := obj.(type) {
-	case *GenericRecord:
-		return w.gdr.Write(obj, enc)
-	case **GenericRecord:
-		if v == nil || *v == nil {
-			return errNilWrite
-		}
-		return w.gdr.Write(*v, enc)
-	default:
-		return w.sdr.Write(obj, enc)
-	}
-}
-
-// coerce interfaces
-var _ DatumWriter = (*GenericDatumWriter)(nil)
-var _ DatumWriter = (*SpecificDatumWriter)(nil)
 
 // SpecificDatumWriter implements DatumWriter and is used for writing Go structs in Avro format.
 type SpecificDatumWriter struct {
@@ -74,9 +42,8 @@ func NewSpecificDatumWriter() *SpecificDatumWriter {
 
 // SetSchema sets the provided schema for this SpecificDatumWriter to know the data structure.
 // Note that it must be called before calling Write.
-func (writer *SpecificDatumWriter) SetSchema(schema Schema) DatumWriter {
+func (writer *SpecificDatumWriter) SetSchema(schema Schema) {
 	writer.schema = schema
-	return writer
 }
 
 // Write writes a single Go struct using this SpecificDatumWriter according to provided Schema.
@@ -86,14 +53,14 @@ func (writer *SpecificDatumWriter) SetSchema(schema Schema) DatumWriter {
 // you should define your struct field as follows: SomeValue int32 `avro:"some_field"`).
 // May return an error indicating a write failure.
 func (writer *SpecificDatumWriter) Write(obj interface{}, enc Encoder) error {
-	if writer, ok := obj.(Marshaler); ok {
-		return writer.MarshalAvro(enc)
+	if writer, ok := obj.(Writer); ok {
+		return writer.Write(enc)
 	}
 
 	rv := reflect.ValueOf(obj)
 
 	if writer.schema == nil {
-		return ErrSchemaNotSet
+		return SchemaNotSet
 	}
 
 	return writer.write(rv, enc, writer.schema)
@@ -281,7 +248,7 @@ func (writer *SpecificDatumWriter) writeFixed(v reflect.Value, enc Encoder, s Sc
 
 func (writer *SpecificDatumWriter) writeRecord(v reflect.Value, enc Encoder, s Schema) error {
 	if !s.Validate(v) {
-		return fmt.Errorf("Encoding Record %s: Invalid record value: %v", s.GetName(), v.Interface())
+		return fmt.Errorf("Invalid record value: %v", v.Interface())
 	}
 
 	rs := assertRecordSchema(s)
@@ -313,9 +280,8 @@ func NewGenericDatumWriter() *GenericDatumWriter {
 
 // SetSchema sets the provided schema for this GenericDatumWriter to know the data structure.
 // Note that it must be called before calling Write.
-func (writer *GenericDatumWriter) SetSchema(schema Schema) DatumWriter {
+func (writer *GenericDatumWriter) SetSchema(schema Schema) {
 	writer.schema = schema
-	return writer
 }
 
 // Write writes a single entry using this GenericDatumWriter according to provided Schema.
