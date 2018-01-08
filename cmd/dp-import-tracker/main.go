@@ -12,17 +12,12 @@ import (
 
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
-	"github.com/ONSdigital/dp-import-tracker/schema"
 	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
+	"github.com/ONSdigital/dp-import/events"
 )
-
-type inputFileAvailable struct {
-	FileURL    string `avro:"file_url"`
-	InstanceID string `avro:"instance_id"`
-}
 
 type insertResult int
 
@@ -72,10 +67,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	if observationsInsertedCount := instanceFromAPI.TotalInsertedObservations; observationsInsertedCount > 0 && observationsInsertedCount != trackedInstances[instanceID].observationsInsertedCount {
 		tempCopy.observationsInsertedCount = observationsInsertedCount
 	}
-	// update jobID (should only 'change' once, on first update after initial creation of the instance - which has no jobID)
-	if importID := instanceFromAPI.Links.Job.ID; importID != trackedInstances[instanceID].jobID {
-		tempCopy.jobID = importID
-	}
+
 	trackedInstances[instanceID] = tempCopy
 	return false, nil
 }
@@ -92,7 +84,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 		trackedInstances[instanceID] = trackedInstance{
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.TotalInsertedObservations,
-			jobID: instance.Links.Job.ID,
+			jobID:                     instance.Links.Job.ID,
 		}
 	}
 	return false, nil
@@ -137,7 +129,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 // manageActiveInstanceEvents handles all updates to trackedInstances in one thread (this is only called once, in its own thread)
 func manageActiveInstanceEvents(
 	ctx context.Context,
-	createInstanceChan chan string,
+	createInstanceChan chan events.InputFileAvailable,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
 	importAPI *api.ImportAPI,
@@ -211,15 +203,23 @@ func manageActiveInstanceEvents(
 				}
 			}
 		case newInstanceMsg := <-createInstanceChan:
-			if _, ok := trackedInstances[newInstanceMsg]; ok {
+			if _, ok := trackedInstances[newInstanceMsg.InstanceID]; ok {
 				log.Error(errors.New("import instance exists"), log.Data{"instanceID": newInstanceMsg})
 				continue
 			}
-			log.Debug("new import instance", log.Data{"instanceID": newInstanceMsg})
-			trackedInstances[newInstanceMsg] = trackedInstance{
+
+			log.Debug("new import instance", log.Data{
+				"instance_id": newInstanceMsg.InstanceID,
+				"job_id":      newInstanceMsg.JobID,
+				"url":         newInstanceMsg.URL,
+			})
+
+			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
+				jobID:                     newInstanceMsg.JobID,
 			}
+
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
 			instanceID := updateObservationsInserted.InstanceID
 			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
@@ -296,7 +296,7 @@ func main() {
 
 	// create instance event handler
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
-	createInstanceChan := make(chan string)
+	createInstanceChan := make(chan events.InputFileAvailable)
 	instanceLoopEndedChan := make(chan bool)
 	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, store)
 
@@ -322,17 +322,17 @@ func main() {
 				log.ErrorC("unexpected httpServer exit", err, nil)
 				looping = false
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
-				var newInstanceEvent inputFileAvailable
-				if err = schema.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
+				var newInstanceEvent events.InputFileAvailable
+				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
-					createInstanceChan <- newInstanceEvent.InstanceID
+					createInstanceChan <- newInstanceEvent
 				}
 				newInstanceMessage.Commit()
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
-				if err = schema.ObservationsInsertedEvent.Unmarshal(msg, &insertedUpdate); err != nil {
+				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
 					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
