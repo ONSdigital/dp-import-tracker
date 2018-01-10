@@ -35,12 +35,11 @@ type InstanceResults struct {
 
 // Instance comes in results from the Dataset API
 type Instance struct {
-	InstanceID                string               `json:"id"`
-	Links                     InstanceLinks        `json:"links,omitempty"`
-	NumberOfObservations      int64                `json:"total_observations"`
-	TotalInsertedObservations int64                `json:"total_inserted_observations,omitempty"`
-	State                     string               `json:"state"`
-	ImportTasks               *InstanceImportTasks `json:"import_tasks"`
+	InstanceID           string               `json:"id"`
+	Links                InstanceLinks        `json:"links,omitempty"`
+	NumberOfObservations int64                `json:"total_observations"`
+	State                string               `json:"state"`
+	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
 }
 
 // InstanceImportTasks
@@ -52,7 +51,7 @@ type InstanceImportTasks struct {
 // ImportObservationsTask represents the task of importing instance observation data into the database.
 type ImportObservationsTask struct {
 	State                string `bson:"state,omitempty" json:"state,omitempty"`
-	InsertedObservations int    `bson:"total_inserted_observations" json:"total_inserted_observations"`
+	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
 }
 
 // BuildHierarchyTask represents a task of importing a single hierarchy.
@@ -108,7 +107,16 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 	return instanceResults.Items, isFatal, nil
 }
 
-// UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID
+func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
+	path := api.url + "/instances/" + instanceID + "/import_tasks/import_observations"
+	logData := log.Data{"url": path}
+	jsonUpload := []byte(`{"state":"completed"}`)
+	logData["jsonUpload"] = jsonUpload
+	jsonBody, httpCode, err := api.put(ctx, path, nil)
+	logData["jsonBytes"] = jsonBody
+	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
+}
+
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}

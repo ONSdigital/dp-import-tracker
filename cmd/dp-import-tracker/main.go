@@ -13,10 +13,10 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import-tracker/store"
+	"github.com/ONSdigital/dp-import/events"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
-	"github.com/ONSdigital/dp-import/events"
 )
 
 type insertResult int
@@ -40,7 +40,16 @@ type insertedObservationsEvent struct {
 type trackedInstance struct {
 	totalObservations         int64
 	observationsInsertedCount int64
+	observationInsertComplete bool
+	buildHierarchyTasks       map[string]*buildHierarchyTask
 	jobID                     string
+}
+
+// buildHierarchyTask represents a task of importing a single hierarchy.
+type buildHierarchyTask struct {
+	isComplete    string
+	dimensionName string
+	codeListID    string
 }
 
 type trackedInstanceList map[string]trackedInstance
@@ -64,8 +73,11 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	if obsCount := instanceFromAPI.NumberOfObservations; obsCount > 0 && obsCount != trackedInstances[instanceID].totalObservations {
 		tempCopy.totalObservations = obsCount
 	}
-	if observationsInsertedCount := instanceFromAPI.TotalInsertedObservations; observationsInsertedCount > 0 && observationsInsertedCount != trackedInstances[instanceID].observationsInsertedCount {
+	if observationsInsertedCount := instanceFromAPI.ImportTasks.ImportObservations.InsertedObservations; observationsInsertedCount > 0 && observationsInsertedCount != trackedInstances[instanceID].observationsInsertedCount {
 		tempCopy.observationsInsertedCount = observationsInsertedCount
+	}
+	if observationImportComplete := instanceFromAPI.ImportTasks.ImportObservations.State == "completed"; !trackedInstances[instanceID].observationInsertComplete && observationImportComplete {
+		tempCopy.observationInsertComplete = observationImportComplete
 	}
 
 	trackedInstances[instanceID] = tempCopy
@@ -83,8 +95,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 		instanceID := instance.InstanceID
 		trackedInstances[instanceID] = trackedInstance{
 			totalObservations:         instance.NumberOfObservations,
-			observationsInsertedCount: instance.TotalInsertedObservations,
-			jobID:                     instance.Links.Job.ID,
+			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
+			jobID: instance.Links.Job.ID,
 		}
 	}
 	return false, nil
@@ -160,47 +172,73 @@ func manageActiveInstanceEvents(
 		case <-tickerChan:
 			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
-				var stopTracking bool
+
+				stopTracking := false
+				instance := trackedInstances[instanceID]
+
+				logData := log.Data{
+					"instanceID": instanceID,
+					"job_id":     instance.jobID,
+				}
+
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID, "isFatal": isFatal})
-					stopTracking = isFatal
-				} else if trackedInstances[instanceID].totalObservations > 0 && trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
+
+				} else if !instance.observationInsertComplete &&
+					instance.totalObservations > 0 &&
+					instance.observationsInsertedCount >= instance.totalObservations {
+
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
-					logData := log.Data{
-						"instanceID":         instanceID,
-						"observations":       trackedInstances[instanceID].observationsInsertedCount,
-						"total_observations": trackedInstances[instanceID].totalObservations,
-						"job_id":             trackedInstances[instanceID].jobID,
-					}
-					log.Debug("import instance possibly complete - will check db", logData)
+					logData["observations"] = instance.observationsInsertedCount
+					logData["total_observations"] = instance.totalObservations
+
+					log.Debug("import observations possibly complete - will check db", logData)
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
 					countObservations, err := store.CountInsertedObservations(instanceID)
 					if err != nil {
 						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
-						// assume no error, i.e. that updating works, so we can stopTracking
-						stopTracking = true
 						logData["db_count"] = countObservations
-						if countObservations != trackedInstances[instanceID].totalObservations {
+						if countObservations != instance.totalObservations {
 							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
-							stopTracking = false
-						} else if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
-							logData["isFatal"] = isFatal
-							log.ErrorC("failed to set import instance state=completed", err, logData)
-							stopTracking = isFatal
-						} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
-							logData["isFatal"] = isFatal
-							log.ErrorC("failed to check import job when instance completed", err, logData)
-							stopTracking = isFatal
-						}
-						if stopTracking {
-							// no (or fatal) errors, so stop tracking the completed (or failed) instance
-							delete(trackedInstances, instanceID)
-							log.Trace("db_count of inserted observations was expected total - marked completed, ceased monitoring", logData)
+						} else {
+
+							log.Debug("import observations complete, calling dataset api to set import observation task complete", logData)
+							if isFatal, err := datasetAPI.SetImportObservationTaskComplete(ctx, instanceID); err != nil {
+								logData["isFatal"] = isFatal
+								log.ErrorC("failed to set import observation task state=completed", err, logData)
+								stopTracking = isFatal
+							}
+
+							// todo : produce messages for each hierarchy
+
 						}
 					}
 				}
+				//else if instance.observationInsertComplete { // todo && if all hierarchies are imported
+				//
+				//
+				//	// assume no error, i.e. that updating works, so we can stopTracking
+				//	stopTracking = true
+				//	if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
+				//		logData["isFatal"] = isFatal
+				//		log.ErrorC("failed to set import instance state=completed", err, logData)
+				//		stopTracking = isFatal
+				//	} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, instance.jobID, instanceID); err != nil {
+				//		logData["isFatal"] = isFatal
+				//		log.ErrorC("failed to check import job when instance completed", err, logData)
+				//		stopTracking = isFatal
+				//	}
+				//
+				//}
+
+				if stopTracking {
+					// no (or fatal) errors, so stop tracking the completed (or failed) instance
+					delete(trackedInstances, instanceID)
+					log.Trace("ceased monitoring instance", logData)
+				}
+
 			}
 		case newInstanceMsg := <-createInstanceChan:
 			if _, ok := trackedInstances[newInstanceMsg.InstanceID]; ok {
@@ -217,7 +255,7 @@ func manageActiveInstanceEvents(
 			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
-				jobID:                     newInstanceMsg.JobID,
+				jobID: newInstanceMsg.JobID,
 			}
 
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
@@ -294,7 +332,14 @@ func main() {
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
 	instanceLoopEndedChan := make(chan bool)
-	go manageActiveInstanceEvents(mainContext, createInstanceChan, updateInstanceWithObservationsInsertedChan, datasetAPI, importAPI, instanceLoopEndedChan, store)
+	go manageActiveInstanceEvents(
+		mainContext,
+		createInstanceChan,
+		updateInstanceWithObservationsInsertedChan,
+		datasetAPI,
+		importAPI,
+		instanceLoopEndedChan,
+		store)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
@@ -341,6 +386,9 @@ func main() {
 				}
 				insertedMessage.Commit()
 			}
+
+			// todo - consume hierarchy built
+			//case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 		}
 		log.Info("main loop completed", nil)
 	}()
