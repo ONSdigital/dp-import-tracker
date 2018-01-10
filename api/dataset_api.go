@@ -35,11 +35,31 @@ type InstanceResults struct {
 
 // Instance comes in results from the Dataset API
 type Instance struct {
-	InstanceID                string        `json:"id"`
-	Links                     InstanceLinks `json:"links,omitempty"`
-	NumberOfObservations      int64         `json:"total_observations"`
-	TotalInsertedObservations int64         `json:"total_inserted_observations,omitempty"`
-	State                     string        `json:"state"`
+	InstanceID                string               `json:"id"`
+	Links                     InstanceLinks        `json:"links,omitempty"`
+	NumberOfObservations      int64                `json:"total_observations"`
+	TotalInsertedObservations int64                `json:"total_inserted_observations,omitempty"`
+	State                     string               `json:"state"`
+	ImportTasks               *InstanceImportTasks `json:"import_tasks"`
+}
+
+// InstanceImportTasks
+type InstanceImportTasks struct {
+	ImportObservations  *ImportObservationsTask `bson:"import_observations,omitempty" json:"import_observations"`
+	BuildHierarchyTasks []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"   json:"build_hierarchies"`
+}
+
+// ImportObservationsTask represents the task of importing instance observation data into the database.
+type ImportObservationsTask struct {
+	State                string `bson:"state,omitempty" json:"state,omitempty"`
+	InsertedObservations int    `bson:"total_inserted_observations" json:"total_inserted_observations"`
+}
+
+// BuildHierarchyTask represents a task of importing a single hierarchy.
+type BuildHierarchyTask struct {
+	State         string `bson:"state,omitempty"          json:"state,omitempty"`
+	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
+	CodeListID    string `bson:"code_list_id,omitempty"   json:"code_list_id,omitempty"`
 }
 
 // InstanceLinks holds all links for an instance
