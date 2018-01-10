@@ -112,7 +112,7 @@ func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, ins
 	logData := log.Data{"url": path}
 	jsonUpload := []byte(`{"state":"completed"}`)
 	logData["jsonUpload"] = jsonUpload
-	jsonBody, httpCode, err := api.put(ctx, path, nil)
+	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
 	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
 }

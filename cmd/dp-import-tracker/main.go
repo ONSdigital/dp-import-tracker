@@ -96,6 +96,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 		trackedInstances[instanceID] = trackedInstance{
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
+			observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
 			jobID: instance.Links.Job.ID,
 		}
 	}
