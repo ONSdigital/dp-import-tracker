@@ -3,14 +3,15 @@ package config
 import (
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
 	"encoding/json"
+	"github.com/kelseyhightower/envconfig"
 )
 
 // Config represents the app configuration
 type Config struct {
 	NewInstanceTopic          string        `envconfig:"INPUT_FILE_AVAILABLE_TOPIC"`
 	ObservationsInsertedTopic string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_TOPIC"`
+	DataImportCompleteTopic   string        `envconfig:"DATA_IMPORT_COMPLETE_TOPIC"`
 	Brokers                   []string      `envconfig:"KAFKA_ADDR"`
 	ImportAPIAddr             string        `envconfig:"IMPORT_API_ADDR"`
 	ImportAPIAuthToken        string        `envconfig:"IMPORT_API_AUTH_TOKEN"                json:"-"`
@@ -28,6 +29,7 @@ func NewConfig() (*Config, error) {
 		BindAddr:                  ":21300",
 		NewInstanceTopic:          "input-file-available",
 		ObservationsInsertedTopic: "import-observations-inserted",
+		DataImportCompleteTopic:   "data-import-complete",
 		Brokers:                   []string{"localhost:9092"},
 		ImportAPIAddr:             "http://localhost:21800",
 		ImportAPIAuthToken:        "FD0108EA-825D-411C-9B1D-41EF7727F465",

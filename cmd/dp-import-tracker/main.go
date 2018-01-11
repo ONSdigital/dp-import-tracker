@@ -41,13 +41,13 @@ type trackedInstance struct {
 	totalObservations         int64
 	observationsInsertedCount int64
 	observationInsertComplete bool
-	buildHierarchyTasks       map[string]*buildHierarchyTask
+	buildHierarchyTasks       map[string]buildHierarchyTask
 	jobID                     string
 }
 
 // buildHierarchyTask represents a task of importing a single hierarchy.
 type buildHierarchyTask struct {
-	isComplete    string
+	isComplete    bool
 	dimensionName string
 	codeListID    string
 }
@@ -80,6 +80,23 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 		tempCopy.observationInsertComplete = observationImportComplete
 	}
 
+	if tempCopy.buildHierarchyTasks == nil {
+		taskMap := make(map[string]buildHierarchyTask, 0)
+		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
+			taskMap[task.CodeListID] = buildHierarchyTask{
+				isComplete:task.State == "completed",
+				dimensionName:task.DimensionName,
+				codeListID:task.CodeListID,
+			}
+		}
+		tempCopy.buildHierarchyTasks = taskMap
+	} else {
+		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
+			hierarchyTask := tempCopy.buildHierarchyTasks[task.CodeListID]
+			hierarchyTask.isComplete = task.State == "completed"
+		}
+	}
+
 	trackedInstances[instanceID] = tempCopy
 	return false, nil
 }
@@ -97,7 +114,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 			observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
-			jobID: instance.Links.Job.ID,
+			jobID:                     instance.Links.Job.ID,
 		}
 	}
 	return false, nil
@@ -148,6 +165,7 @@ func manageActiveInstanceEvents(
 	importAPI *api.ImportAPI,
 	instanceLoopDoneChan chan bool,
 	store store.Storer,
+	dataImportCompleteProducer kafka.Producer,
 ) {
 
 	// inform main() when we have stopped processing events
@@ -212,8 +230,11 @@ func manageActiveInstanceEvents(
 								stopTracking = isFatal
 							}
 
-							// todo : produce messages for each hierarchy
-
+							err = produceDataImportCompleteEvents(instance, instanceID, dataImportCompleteProducer)
+							if err != nil {
+								log.ErrorC("failed to send data import complete events", err, logData)
+								stopTracking = true
+							}
 						}
 					}
 				}
@@ -256,7 +277,7 @@ func manageActiveInstanceEvents(
 			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
-				jobID: newInstanceMsg.JobID,
+				jobID:                     newInstanceMsg.JobID,
 			}
 
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
@@ -281,6 +302,33 @@ func manageActiveInstanceEvents(
 		}
 	}
 	log.Info("Instance loop completed", nil)
+}
+
+func produceDataImportCompleteEvents(
+	instance trackedInstance,
+	instanceID string,
+	dataImportCompleteProducer kafka.Producer) error {
+
+	for _, task := range instance.buildHierarchyTasks {
+
+		dataImportCompleteEvent := &events.DataImportComplete{
+			InstanceID:    instanceID,
+			CodeListID:    task.codeListID,
+			DimensionName: task.dimensionName,
+		}
+
+		log.Debug("data import complete, producing event message",
+			log.Data{"event": dataImportCompleteEvent})
+
+		bytes, err := events.DataImportCompleteSchema.Marshal(dataImportCompleteEvent)
+		if err != nil {
+			return err
+		}
+
+		dataImportCompleteProducer.Output() <- bytes
+	}
+
+	return nil
 }
 
 // logFatal is a utility method for a common failure pattern in main()
@@ -315,6 +363,11 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
+	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
+	if err != nil {
+		logFatal("observation import complete kafka producer error", err, nil)
+	}
+
 	store, err := store.New(cfg.DatabaseAddress, cfg.DatabasePoolSize)
 	if err != nil {
 		logFatal("could not obtain database connection", err, nil)
@@ -340,7 +393,8 @@ func main() {
 		datasetAPI,
 		importAPI,
 		instanceLoopEndedChan,
-		store)
+		store,
+		dataImportCompleteProducer)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler

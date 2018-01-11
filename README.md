@@ -31,6 +31,7 @@ for the parent import job, if all other instances are also `completed`).
 | ------------------------------------- | --------------------------------------------- | -----------
 | INPUT_FILE_AVAILABLE_TOPIC            | `input-file-available`                        | topic name for import file available events
 | IMPORT_OBSERVATIONS_INSERTED_TOPIC    | `import-observations-inserted`                | topic name for numbers of inserted observations
+| DATA_IMPORT_COMPLETE_TOPIC            | `data-import-complete`                        | topic name for hierarchies ready to be imported
 | KAFKA_ADDR                            | `localhost:9092`                              | A list of kafka brokers
 | IMPORT_API_ADDR                       | `http://localhost:21800`                      | The address of Import API
 | IMPORT_API_AUTH_TOKEN                 | "FD0108EA-825D-411C-9B1D-41EF7727F465"        | Authentication token for access to import API
