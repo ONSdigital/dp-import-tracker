@@ -125,6 +125,16 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
 }
 
+func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
+	path := api.url + "/instances/" + instanceID + "/import_tasks/build_hierarchies/" + dimensionID
+	logData := log.Data{"url": path}
+	jsonUpload := []byte(`{"state":"completed"}`)
+	logData["jsonUpload"] = jsonUpload
+	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
+	logData["jsonBytes"] = jsonBody
+	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
+}
+
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
 func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID

@@ -45,6 +45,17 @@ type trackedInstance struct {
 	jobID                     string
 }
 
+func (instance trackedInstance) AllHierarchiesAreImported() bool {
+
+	for _, task := range instance.buildHierarchyTasks {
+		if !task.isComplete {
+			return false
+		}
+	}
+
+	return true
+}
+
 // buildHierarchyTask represents a task of importing a single hierarchy.
 type buildHierarchyTask struct {
 	isComplete    bool
@@ -76,29 +87,36 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	if observationsInsertedCount := instanceFromAPI.ImportTasks.ImportObservations.InsertedObservations; observationsInsertedCount > 0 && observationsInsertedCount != trackedInstances[instanceID].observationsInsertedCount {
 		tempCopy.observationsInsertedCount = observationsInsertedCount
 	}
-	if observationImportComplete := instanceFromAPI.ImportTasks.ImportObservations.State == "completed"; !trackedInstances[instanceID].observationInsertComplete && observationImportComplete {
-		tempCopy.observationInsertComplete = observationImportComplete
-	}
+
+	tempCopy.observationInsertComplete = instanceFromAPI.ImportTasks.ImportObservations.State == "completed"
 
 	if tempCopy.buildHierarchyTasks == nil {
-		taskMap := make(map[string]buildHierarchyTask, 0)
-		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
-			taskMap[task.CodeListID] = buildHierarchyTask{
-				isComplete:task.State == "completed",
-				dimensionName:task.DimensionName,
-				codeListID:task.CodeListID,
-			}
-		}
+		taskMap := createTaskMapFromInstance(instanceFromAPI)
 		tempCopy.buildHierarchyTasks = taskMap
 	} else {
 		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
 			hierarchyTask := tempCopy.buildHierarchyTasks[task.CodeListID]
 			hierarchyTask.isComplete = task.State == "completed"
+			tempCopy.buildHierarchyTasks[task.CodeListID] = hierarchyTask
 		}
 	}
 
 	trackedInstances[instanceID] = tempCopy
 	return false, nil
+}
+
+func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
+
+	taskMap := make(map[string]buildHierarchyTask, 0)
+
+	for _, task := range instance.ImportTasks.BuildHierarchyTasks {
+		taskMap[task.CodeListID] = buildHierarchyTask{
+			isComplete:    task.State == "completed",
+			dimensionName: task.DimensionName,
+			codeListID:    task.CodeListID,
+		}
+	}
+	return taskMap
 }
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
@@ -109,12 +127,15 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 	}
 	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
-		instanceID := instance.InstanceID
-		trackedInstances[instanceID] = trackedInstance{
+
+		taskMap := createTaskMapFromInstance(instance)
+
+		trackedInstances[instance.InstanceID] = trackedInstance{
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 			observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
 			jobID:                     instance.Links.Job.ID,
+			buildHierarchyTasks:       taskMap,
 		}
 	}
 	return false, nil
@@ -193,24 +214,23 @@ func manageActiveInstanceEvents(
 			for instanceID := range trackedInstances {
 
 				stopTracking := false
-				instance := trackedInstances[instanceID]
 
 				logData := log.Data{
 					"instanceID": instanceID,
-					"job_id":     instance.jobID,
+					"job_id":     trackedInstances[instanceID].jobID,
 				}
 
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID, "isFatal": isFatal})
 
-				} else if !instance.observationInsertComplete &&
-					instance.totalObservations > 0 &&
-					instance.observationsInsertedCount >= instance.totalObservations {
+				} else if !trackedInstances[instanceID].observationInsertComplete &&
+					trackedInstances[instanceID].totalObservations > 0 &&
+					trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
 
 					// the above check on totalObservations ensures that we have updated this instance from the Import API (non-default value)
 					// and that inserts have exceeded the expected
-					logData["observations"] = instance.observationsInsertedCount
-					logData["total_observations"] = instance.totalObservations
+					logData["observations"] = trackedInstances[instanceID].observationsInsertedCount
+					logData["total_observations"] = trackedInstances[instanceID].totalObservations
 
 					log.Debug("import observations possibly complete - will check db", logData)
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
@@ -219,7 +239,7 @@ func manageActiveInstanceEvents(
 						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
 						logData["db_count"] = countObservations
-						if countObservations != instance.totalObservations {
+						if countObservations != trackedInstances[instanceID].totalObservations {
 							log.Trace("db_count of inserted observations != expected total - will continue to monitor", logData)
 						} else {
 
@@ -230,30 +250,28 @@ func manageActiveInstanceEvents(
 								stopTracking = isFatal
 							}
 
-							err = produceDataImportCompleteEvents(instance, instanceID, dataImportCompleteProducer)
+							err = produceDataImportCompleteEvents(trackedInstances[instanceID], instanceID, dataImportCompleteProducer)
 							if err != nil {
 								log.ErrorC("failed to send data import complete events", err, logData)
 								stopTracking = true
 							}
 						}
 					}
+				} else if trackedInstances[instanceID].observationInsertComplete &&
+					trackedInstances[instanceID].AllHierarchiesAreImported() {
+
+					// assume no error, i.e. that updating works, so we can stopTracking
+					stopTracking = true
+					if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
+						logData["isFatal"] = isFatal
+						log.ErrorC("failed to set import instance state=completed", err, logData)
+						stopTracking = isFatal
+					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
+						logData["isFatal"] = isFatal
+						log.ErrorC("failed to check import job when instance completed", err, logData)
+						stopTracking = isFatal
+					}
 				}
-				//else if instance.observationInsertComplete { // todo && if all hierarchies are imported
-				//
-				//
-				//	// assume no error, i.e. that updating works, so we can stopTracking
-				//	stopTracking = true
-				//	if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
-				//		logData["isFatal"] = isFatal
-				//		log.ErrorC("failed to set import instance state=completed", err, logData)
-				//		stopTracking = isFatal
-				//	} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, instance.jobID, instanceID); err != nil {
-				//		logData["isFatal"] = isFatal
-				//		log.ErrorC("failed to check import job when instance completed", err, logData)
-				//		stopTracking = isFatal
-				//	}
-				//
-				//}
 
 				if stopTracking {
 					// no (or fatal) errors, so stop tracking the completed (or failed) instance
@@ -354,13 +372,31 @@ func main() {
 	httpServerDoneChan := make(chan error)
 	api.StartHealthCheck(cfg.BindAddr, httpServerDoneChan)
 
-	newInstanceEventConsumer, err := kafka.NewConsumerGroup(cfg.Brokers, cfg.NewInstanceTopic, log.Namespace, kafka.OffsetOldest)
+	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
+		cfg.Brokers,
+		cfg.NewInstanceTopic,
+		cfg.NewInstanceConsumerGroup,
+		kafka.OffsetOldest)
 	if err != nil {
-		logFatal("could not obtain consumer", err, nil)
+		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.NewInstanceTopic})
 	}
-	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(cfg.Brokers, cfg.ObservationsInsertedTopic, log.Namespace, kafka.OffsetOldest)
+
+	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(
+		cfg.Brokers,
+		cfg.ObservationsInsertedTopic,
+		cfg.ObservationsInsertedConsumerGroup,
+		kafka.OffsetOldest)
 	if err != nil {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
+	}
+
+	hierarchyBuiltConsumer, err := kafka.NewConsumerGroup(
+		cfg.Brokers,
+		cfg.HierarchyBuiltTopic,
+		cfg.HierarchyBuiltConsumerGroup,
+		kafka.OffsetOldest)
+	if err != nil {
+		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
 
 	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
@@ -382,10 +418,10 @@ func main() {
 	// create context for all work
 	mainContext, mainContextCancel := context.WithCancel(context.Background())
 
-	// create instance event handler
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
 	instanceLoopEndedChan := make(chan bool)
+
 	go manageActiveInstanceEvents(
 		mainContext,
 		createInstanceChan,
@@ -440,10 +476,33 @@ func main() {
 					}
 				}
 				insertedMessage.Commit()
-			}
+			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Incoming():
+				var event events.HierarchyBuilt
+				if err = events.HierarchyBuiltSchema.Unmarshal(hierarchyBuiltMessage.GetData(), &event); err != nil {
 
-			// todo - consume hierarchy built
-			//case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
+					// todo: call error reporter
+					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+
+				} else {
+
+					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
+					log.Debug("processing hierarchy built message", logData)
+
+					if isFatal, err := datasetAPI.UpdateInstanceWithHierarchyBuilt(
+						mainContext,
+						event.InstanceID,
+						event.DimensionName); err != nil {
+
+						if isFatal {
+							// todo: call error reporter
+							log.ErrorC("failed to update instance with hierarchy built status", err, logData)
+						}
+					}
+					log.Debug("updated instance with hierarchy built. committing message", logData)
+				}
+
+				hierarchyBuiltMessage.Commit()
+			}
 		}
 		log.Info("main loop completed", nil)
 	}()
@@ -501,6 +560,19 @@ func main() {
 		}
 		if err = store.Close(shutdownContext); err != nil {
 			log.ErrorC("bad db close", err, nil)
+		}
+	})
+
+	backgroundAndCount(&waitCount, reduceWaits, func() {
+		var err error
+		if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+		} else {
+			log.Debug("listen stopped", log.Data{"topic": cfg.HierarchyBuiltTopic})
+		}
+		<-mainLoopEndedChan
+		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
+			log.ErrorC("bad close", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 		}
 	})
 
