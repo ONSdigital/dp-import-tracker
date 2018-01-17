@@ -48,7 +48,6 @@ func TestGetInstance(t *testing.T) {
 			State:                     "created",
 			InstanceID:                "iid",
 			NumberOfObservations:      1122,
-			TotalInsertedObservations: 2233,
 			Links: InstanceLinks{
 				Job: JobLinks{
 					ID:   "jid1",
