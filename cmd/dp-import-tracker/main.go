@@ -216,7 +216,7 @@ func manageActiveInstanceEvents(
 				stopTracking := false
 
 				logData := log.Data{
-					"instanceID": instanceID,
+					"instance_id": instanceID,
 					"job_id":     trackedInstances[instanceID].jobID,
 				}
 

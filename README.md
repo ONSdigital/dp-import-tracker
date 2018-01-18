@@ -45,9 +45,6 @@ for the parent import job, if all other instances are also `completed`).
 | GRACEFUL_SHUTDOWN_TIMEOUT                   | `5s`                                    | how much grace time to allow when shutting down
 | DATABASE_ADDRESS                            | `bolt://localhost:7687`                 | The address of the database
 
-HierarchyBuiltTopic         string        `envconfig:"HIERARCHY_BUILT_TOPIC"`
-	HierarchyBuiltConsumerGroup string        `envconfig:"HIERARCHY_BUILT_CONSUMER_GROUP"`
-
 ### Contributing
 
 See [CONTRIBUTING](CONTRIBUTING.md) for details.

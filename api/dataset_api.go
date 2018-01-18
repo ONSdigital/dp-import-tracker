@@ -42,7 +42,7 @@ type Instance struct {
 	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
 }
 
-// InstanceImportTasks
+// InstanceImportTasks is a list of tasks relevant to this import
 type InstanceImportTasks struct {
 	ImportObservations  *ImportObservationsTask `bson:"import_observations,omitempty" json:"import_observations"`
 	BuildHierarchyTasks []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"   json:"build_hierarchies"`
@@ -107,6 +107,7 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 	return instanceResults.Items, isFatal, nil
 }
 
+// SetImportObservationTaskComplete marks the import observation task state as completed for an instance
 func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/import_tasks/import_observations"
 	logData := log.Data{"url": path}
@@ -117,6 +118,7 @@ func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, ins
 	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
 }
 
+// UpdateInstanceWithNewInserts increments the observation inserted count for an instance
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
@@ -125,6 +127,7 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
 }
 
+// UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/import_tasks/build_hierarchies/" + dimensionID
 	logData := log.Data{"url": path}
@@ -132,7 +135,7 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 	logData["jsonUpload"] = jsonUpload
 	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
-	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
+	return errorChecker("UpdateInstanceWithHierarchyBuilt", err, httpCode, &logData)
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
