@@ -134,8 +134,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 			totalObservations:         instance.NumberOfObservations,
 			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 			observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
-			jobID:                     instance.Links.Job.ID,
-			buildHierarchyTasks:       taskMap,
+			jobID:               instance.Links.Job.ID,
+			buildHierarchyTasks: taskMap,
 		}
 	}
 	return false, nil
@@ -217,7 +217,7 @@ func manageActiveInstanceEvents(
 
 				logData := log.Data{
 					"instance_id": instanceID,
-					"job_id":     trackedInstances[instanceID].jobID,
+					"job_id":      trackedInstances[instanceID].jobID,
 				}
 
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
@@ -295,7 +295,7 @@ func manageActiveInstanceEvents(
 			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
-				jobID:                     newInstanceMsg.JobID,
+				jobID: newInstanceMsg.JobID,
 			}
 
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:

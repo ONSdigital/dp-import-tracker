@@ -109,9 +109,9 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 
 // SetImportObservationTaskComplete marks the import observation task state as completed for an instance
 func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/import_tasks/import_observations"
+	path := api.url + "/instances/" + instanceID + "/import_tasks"
 	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"state":"completed"}`)
+	jsonUpload := []byte(`{"import_observations":{"state":"completed"}}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
@@ -129,9 +129,9 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 
 // UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/import_tasks/build_hierarchies/" + dimensionID
+	path := api.url + "/instances/" + instanceID + "/import_tasks"
 	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"state":"completed"}`)
+	jsonUpload := []byte(`{"build_hierarchies":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
