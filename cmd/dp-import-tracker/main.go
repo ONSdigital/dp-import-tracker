@@ -109,13 +109,16 @@ func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyT
 
 	taskMap := make(map[string]buildHierarchyTask, 0)
 
-	for _, task := range instance.ImportTasks.BuildHierarchyTasks {
-		taskMap[task.CodeListID] = buildHierarchyTask{
-			isComplete:    task.State == "completed",
-			dimensionName: task.DimensionName,
-			codeListID:    task.CodeListID,
+	if instance.ImportTasks != nil {
+		for _, task := range instance.ImportTasks.BuildHierarchyTasks {
+			taskMap[task.CodeListID] = buildHierarchyTask{
+				isComplete:    task.State == "completed",
+				dimensionName: task.DimensionName,
+				codeListID:    task.CodeListID,
+			}
 		}
 	}
+
 	return taskMap
 }
 
@@ -130,13 +133,16 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 
 		taskMap := createTaskMapFromInstance(instance)
 
-		trackedInstances[instance.InstanceID] = trackedInstance{
-			totalObservations:         instance.NumberOfObservations,
-			observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
-			observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
-			jobID:               instance.Links.Job.ID,
-			buildHierarchyTasks: taskMap,
+		if instance.ImportTasks != nil {
+			trackedInstances[instance.InstanceID] = trackedInstance{
+				totalObservations:         instance.NumberOfObservations,
+				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
+				observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
+				jobID:               instance.Links.Job.ID,
+				buildHierarchyTasks: taskMap,
+			}
 		}
+
 	}
 	return false, nil
 }
