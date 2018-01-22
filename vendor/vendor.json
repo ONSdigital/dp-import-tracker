@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "EiTaqi0kmbNTQWGBqm0ucCKONh8=",
+			"path": "github.com/ONSdigital/dp-import/events",
+			"revision": "8f546a374d63d6085ef9e5b594b9299ceb6d1eb7",
+			"revisionTime": "2018-01-16T09:54:17Z"
+		},
+		{
 			"checksumSHA1": "WI5P8MbnHHGqzuQje+qFoQSUHgk=",
 			"path": "github.com/ONSdigital/go-ns/avro",
 			"revision": "c45be7d1a146fdaf45f65304f09c7952a9aaf2cb",
@@ -236,12 +242,6 @@
 			"path": "github.com/smartystreets/goconvey/convey/reporting",
 			"revision": "e5b2b7c9111590d019a696c7800593f666e1a7f4",
 			"revisionTime": "2017-08-25T22:14:26Z"
-		},
-		{
-			"checksumSHA1": "DtMSjAYF3qQVgNVsdsWax7VzmGk=",
-			"path": "github.com/smartystreets/logging",
-			"revision": "ac3a674540761aa0b4382094ba4795f917e85c7f",
-			"revisionTime": "2016-08-01T17:25:37Z"
 		},
 		{
 			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
