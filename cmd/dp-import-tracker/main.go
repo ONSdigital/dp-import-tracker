@@ -42,6 +42,7 @@ type trackedInstance struct {
 	observationsInsertedCount int64
 	observationInsertComplete bool
 	buildHierarchyTasks       map[string]buildHierarchyTask
+	buildSearchTasks          map[string]buildSearchTask
 	jobID                     string
 }
 
@@ -61,6 +62,11 @@ type buildHierarchyTask struct {
 	isComplete    bool
 	dimensionName string
 	codeListID    string
+}
+
+type buildSearchTask struct {
+	isComplete    bool
+	dimensionName string
 }
 
 type trackedInstanceList map[string]trackedInstance
@@ -91,13 +97,22 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	tempCopy.observationInsertComplete = instanceFromAPI.ImportTasks.ImportObservations.State == "completed"
 
 	if tempCopy.buildHierarchyTasks == nil {
-		taskMap := createTaskMapFromInstance(instanceFromAPI)
-		tempCopy.buildHierarchyTasks = taskMap
+		hierarchyTasks := createHierarchyTaskMapFromInstance(instanceFromAPI)
+		tempCopy.buildHierarchyTasks = hierarchyTasks
+
+		searchTasks := createSearchTaskMapFromInstance(instanceFromAPI)
+		tempCopy.buildSearchTasks = searchTasks
 	} else {
 		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
 			hierarchyTask := tempCopy.buildHierarchyTasks[task.CodeListID]
 			hierarchyTask.isComplete = task.State == "completed"
 			tempCopy.buildHierarchyTasks[task.CodeListID] = hierarchyTask
+		}
+
+		for _, task := range instanceFromAPI.ImportTasks.BuildSearchTasks {
+			searchTask := tempCopy.buildSearchTasks[task.DimensionName]
+			searchTask.isComplete = task.State == "completed"
+			tempCopy.buildSearchTasks[task.DimensionName] = searchTask
 		}
 	}
 
@@ -105,13 +120,13 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	return false, nil
 }
 
-func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
+func createHierarchyTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
 
-	taskMap := make(map[string]buildHierarchyTask, 0)
+	buildHierarchyTasks := make(map[string]buildHierarchyTask, 0)
 
 	if instance.ImportTasks != nil {
 		for _, task := range instance.ImportTasks.BuildHierarchyTasks {
-			taskMap[task.CodeListID] = buildHierarchyTask{
+			buildHierarchyTasks[task.CodeListID] = buildHierarchyTask{
 				isComplete:    task.State == "completed",
 				dimensionName: task.DimensionName,
 				codeListID:    task.CodeListID,
@@ -119,7 +134,23 @@ func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyT
 		}
 	}
 
-	return taskMap
+	return buildHierarchyTasks
+}
+
+func createSearchTaskMapFromInstance(instance api.Instance) map[string]buildSearchTask {
+
+	buildSearchTasks := make(map[string]buildSearchTask, 0)
+
+	if instance.ImportTasks != nil {
+		for _, task := range instance.ImportTasks.BuildSearchTasks {
+			buildSearchTasks[task.DimensionName] = buildSearchTask{
+				isComplete:    task.State == "completed",
+				dimensionName: task.DimensionName,
+			}
+		}
+	}
+
+	return buildSearchTasks
 }
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
@@ -131,15 +162,17 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 
-		taskMap := createTaskMapFromInstance(instance)
+		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
+		searchTasks := createSearchTaskMapFromInstance(instance)
 
 		if instance.ImportTasks != nil {
 			trackedInstances[instance.InstanceID] = trackedInstance{
 				totalObservations:         instance.NumberOfObservations,
 				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 				observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
-				jobID:               instance.Links.Job.ID,
-				buildHierarchyTasks: taskMap,
+				jobID:                     instance.Links.Job.ID,
+				buildHierarchyTasks:       hierarchyTasks,
+				buildSearchTasks:          searchTasks,
 			}
 		}
 
@@ -301,7 +334,7 @@ func manageActiveInstanceEvents(
 			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
-				jobID: newInstanceMsg.JobID,
+				jobID:                     newInstanceMsg.JobID,
 			}
 
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
@@ -460,6 +493,10 @@ func main() {
 				log.ErrorC("unexpected httpServer exit", err, nil)
 				looping = false
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
+
+				log.Debug("message received on new instance channel", log.Data{
+					"offset":newInstanceMessage.Offset(), "message":newInstanceMessage })
+
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.ErrorC("TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
@@ -468,6 +505,12 @@ func main() {
 				}
 				newInstanceMessage.Commit()
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
+
+
+				log.Debug("message received on observation inserted channel", log.Data{
+					"offset":insertedMessage.Offset(), "message":insertedMessage })
+
+
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
 				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {

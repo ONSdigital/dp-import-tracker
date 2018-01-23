@@ -42,16 +42,17 @@ type Instance struct {
 	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
 }
 
-// InstanceImportTasks is a list of tasks relevant to this import
+// InstanceImportTasks represents all of the tasks required to complete an import job.
 type InstanceImportTasks struct {
 	ImportObservations  *ImportObservationsTask `bson:"import_observations,omitempty" json:"import_observations"`
 	BuildHierarchyTasks []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"   json:"build_hierarchies"`
+	BuildSearchTasks    []*BuildSearchTask      `bson:"build_search,omitempty"        json:"build_search"`
 }
 
 // ImportObservationsTask represents the task of importing instance observation data into the database.
 type ImportObservationsTask struct {
-	State                string `bson:"state,omitempty" json:"state,omitempty"`
-	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
+	State                string `json:"state,omitempty"`
+	InsertedObservations int64    `json:"total_inserted_observations"`
 }
 
 // BuildHierarchyTask represents a task of importing a single hierarchy.
@@ -59,6 +60,12 @@ type BuildHierarchyTask struct {
 	State         string `bson:"state,omitempty"          json:"state,omitempty"`
 	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
 	CodeListID    string `bson:"code_list_id,omitempty"   json:"code_list_id,omitempty"`
+}
+
+// BuildSearchTask represents a task of importing a single hierarchy into search.
+type BuildSearchTask struct {
+	State         string `bson:"state,omitempty"          json:"state,omitempty"`
+	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
 }
 
 // InstanceLinks holds all links for an instance
