@@ -45,10 +45,9 @@ func TestGetInstance(t *testing.T) {
 		instance, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
 		So(err, ShouldBeNil)
 		So(instance, ShouldResemble, Instance{
-			State:                     "created",
-			InstanceID:                "iid",
-			NumberOfObservations:      1122,
-			TotalInsertedObservations: 2233,
+			State:                "created",
+			InstanceID:           "iid",
+			NumberOfObservations: 1122,
 			Links: InstanceLinks{
 				Job: JobLinks{
 					ID:   "jid1",

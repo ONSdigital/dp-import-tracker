@@ -35,11 +35,30 @@ type InstanceResults struct {
 
 // Instance comes in results from the Dataset API
 type Instance struct {
-	InstanceID                string        `json:"id"`
-	Links                     InstanceLinks `json:"links,omitempty"`
-	NumberOfObservations      int64         `json:"total_observations"`
-	TotalInsertedObservations int64         `json:"total_inserted_observations,omitempty"`
-	State                     string        `json:"state"`
+	InstanceID           string               `json:"id"`
+	Links                InstanceLinks        `json:"links,omitempty"`
+	NumberOfObservations int64                `json:"total_observations"`
+	State                string               `json:"state"`
+	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
+}
+
+// InstanceImportTasks is a list of tasks relevant to this import
+type InstanceImportTasks struct {
+	ImportObservations  *ImportObservationsTask `bson:"import_observations,omitempty" json:"import_observations"`
+	BuildHierarchyTasks []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"   json:"build_hierarchies"`
+}
+
+// ImportObservationsTask represents the task of importing instance observation data into the database.
+type ImportObservationsTask struct {
+	State                string `bson:"state,omitempty" json:"state,omitempty"`
+	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
+}
+
+// BuildHierarchyTask represents a task of importing a single hierarchy.
+type BuildHierarchyTask struct {
+	State         string `bson:"state,omitempty"          json:"state,omitempty"`
+	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
+	CodeListID    string `bson:"code_list_id,omitempty"   json:"code_list_id,omitempty"`
 }
 
 // InstanceLinks holds all links for an instance
@@ -88,13 +107,35 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 	return instanceResults.Items, isFatal, nil
 }
 
-// UpdateInstanceWithNewInserts tells the Dataset API of a number of observationsInserted for instanceID
+// SetImportObservationTaskComplete marks the import observation task state as completed for an instance
+func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
+	path := api.url + "/instances/" + instanceID + "/import_tasks"
+	logData := log.Data{"url": path}
+	jsonUpload := []byte(`{"import_observations":{"state":"completed"}}`)
+	logData["jsonUpload"] = jsonUpload
+	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
+	logData["jsonBytes"] = jsonBody
+	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
+}
+
+// UpdateInstanceWithNewInserts increments the observation inserted count for an instance
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
 	logData := log.Data{"url": path}
 	jsonBody, httpCode, err := api.put(ctx, path, nil)
 	logData["jsonBytes"] = jsonBody
 	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
+}
+
+// UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
+func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
+	path := api.url + "/instances/" + instanceID + "/import_tasks"
+	logData := log.Data{"url": path}
+	jsonUpload := []byte(`{"build_hierarchies":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
+	logData["jsonUpload"] = jsonUpload
+	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
+	logData["jsonBytes"] = jsonBody
+	return errorChecker("UpdateInstanceWithHierarchyBuilt", err, httpCode, &logData)
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
