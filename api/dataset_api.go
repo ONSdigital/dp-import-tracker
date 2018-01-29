@@ -51,8 +51,8 @@ type InstanceImportTasks struct {
 
 // ImportObservationsTask represents the task of importing instance observation data into the database.
 type ImportObservationsTask struct {
-	State                string `json:"state,omitempty"`
-	InsertedObservations int64  `json:"total_inserted_observations"`
+	State                string `bson:"state,omitempty"             json:"state,omitempty"`
+	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
 }
 
 // BuildHierarchyTask represents a task of importing a single hierarchy.
@@ -149,11 +149,11 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
 	path := api.url + "/instances/" + instanceID + "/import_tasks"
 	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"build_search":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
+	jsonUpload := []byte(`{"build_search_indexes":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
 	logData["jsonUpload"] = jsonUpload
 	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
-	return errorChecker("UpdateInstanceWithHierarchyBuilt", err, httpCode, &logData)
+	return errorChecker("UpdateInstanceWithSearchIndexBuilt", err, httpCode, &logData)
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
