@@ -12,8 +12,10 @@ import (
 
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
+	"github.com/ONSdigital/dp-import-tracker/event"
 	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/dp-import/events"
+	"github.com/ONSdigital/dp-reporter-client/reporter"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
@@ -408,8 +410,27 @@ func main() {
 	// sensitive fields are omitted from config.String().
 	log.Debug("loaded config", log.Data{"config": cfg})
 
+	// create context for all work
+	mainContext, mainContextCancel := context.WithCancel(context.Background())
+
 	httpServerDoneChan := make(chan error)
 	api.StartHealthCheck(cfg.BindAddr, httpServerDoneChan)
+
+	client := rchttp.DefaultClient
+	client.MaxRetries = 4
+
+	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
+	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
+
+	kafkaErrorProducer, err := kafka.NewProducer(cfg.Brokers, cfg.ErrorProducerTopic, 0)
+	if err != nil {
+		logFatal("failed to create error reporter kafka producer", err, log.Data{"topic": cfg.ErrorProducerTopic})
+	}
+
+	errorHandler, err := reporter.NewImportErrorReporter(kafkaErrorProducer, log.Namespace)
+	if err != nil {
+		logFatal("failed to create error reporter client", err, log.Data{"topic": cfg.NewInstanceTopic})
+	}
 
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		cfg.Brokers,
@@ -438,6 +459,10 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
 
+	hierarchyBuiltHandler := event.NewHierarchyBuiltHandler(mainContext, datasetAPI, errorHandler)
+	hierarchyBuiltAsyncConsumer := kafka.NewAsyncConsumer()
+	hierarchyBuiltAsyncConsumer.Consume(hierarchyBuiltConsumer, hierarchyBuiltHandler.Handle)
+
 	searchBuiltConsumer, err := kafka.NewConsumerGroup(
 		cfg.Brokers,
 		cfg.SearchBuiltTopic,
@@ -456,15 +481,6 @@ func main() {
 	if err != nil {
 		logFatal("could not obtain database connection", err, nil)
 	}
-
-	client := rchttp.DefaultClient
-	client.MaxRetries = 4
-
-	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
-	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
-
-	// create context for all work
-	mainContext, mainContextCancel := context.WithCancel(context.Background())
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
@@ -532,32 +548,6 @@ func main() {
 					}
 				}
 				insertedMessage.Commit()
-			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Incoming():
-				var event events.HierarchyBuilt
-				if err = events.HierarchyBuiltSchema.Unmarshal(hierarchyBuiltMessage.GetData(), &event); err != nil {
-
-					// todo: call error reporter
-					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
-
-				} else {
-
-					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Debug("processing hierarchy built message", logData)
-
-					if isFatal, err := datasetAPI.UpdateInstanceWithHierarchyBuilt(
-						mainContext,
-						event.InstanceID,
-						event.DimensionName); err != nil {
-
-						if isFatal {
-							// todo: call error reporter
-							log.ErrorC("failed to update instance with hierarchy built status", err, logData)
-						}
-					}
-					log.Debug("updated instance with hierarchy built. committing message", logData)
-				}
-
-				hierarchyBuiltMessage.Commit()
 
 			case searchBuiltMessage := <-searchBuiltConsumer.Incoming():
 				var event events.SearchIndexBuilt
@@ -571,15 +561,13 @@ func main() {
 					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
 					log.Debug("processing search index built message", logData)
 
-					if isFatal, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
+					if _, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
 						mainContext,
 						event.InstanceID,
 						event.DimensionName); err != nil {
 
-						if isFatal {
-							// todo: call error reporter
-							log.ErrorC("failed to update instance with hierarchy built status", err, logData)
-						}
+						// todo: call error reporter
+						log.ErrorC("failed to update instance with hierarchy built status", err, logData)
 					}
 					log.Debug("updated instance with hierarchy built. committing message", logData)
 				}
@@ -649,19 +637,6 @@ func main() {
 
 	backgroundAndCount(&waitCount, reduceWaits, func() {
 		var err error
-		if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
-		} else {
-			log.Debug("listen stopped", log.Data{"topic": cfg.HierarchyBuiltTopic})
-		}
-		<-mainLoopEndedChan
-		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
-			log.ErrorC("bad close", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
-		}
-	})
-
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
 		if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
 		} else {
@@ -681,6 +656,9 @@ func main() {
 		}
 		<-httpServerDoneChan
 	})
+
+	hierarchyBuiltAsyncConsumer.Close(shutdownContext)
+	hierarchyBuiltConsumer.Close(shutdownContext)
 
 	// loop until context is done (cancelled or timeout) NOTE: waitCount==0 cancels the context
 	for contextRunning := true; contextRunning; {

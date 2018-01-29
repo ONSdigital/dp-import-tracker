@@ -9,6 +9,30 @@
 			"revisionTime": "2018-01-29T11:39:43Z"
 		},
 		{
+			"checksumSHA1": "yVhSSS1KY9fmMVUcoZhIVyRB/YA=",
+			"path": "github.com/ONSdigital/dp-reporter-client/model",
+			"revision": "2a4f047efd3afeaf282c577dd1e87f7de34dc8de",
+			"revisionTime": "2017-10-10T10:05:43Z"
+		},
+		{
+			"checksumSHA1": "7VuAVtBFJvzKbYbIYRWNxYLu9Ww=",
+			"path": "github.com/ONSdigital/dp-reporter-client/reporter",
+			"revision": "2a4f047efd3afeaf282c577dd1e87f7de34dc8de",
+			"revisionTime": "2017-10-10T10:05:43Z"
+		},
+		{
+			"checksumSHA1": "OXjV7Al4Q42aSizk3mhzzLCLFWA=",
+			"path": "github.com/ONSdigital/dp-reporter-client/reporter/reportertest",
+			"revision": "2a4f047efd3afeaf282c577dd1e87f7de34dc8de",
+			"revisionTime": "2017-10-10T10:05:43Z"
+		},
+		{
+			"checksumSHA1": "9+/RSnsTjyQxIVXfczqMkJpN6fM=",
+			"path": "github.com/ONSdigital/dp-reporter-client/schema",
+			"revision": "2a4f047efd3afeaf282c577dd1e87f7de34dc8de",
+			"revisionTime": "2017-10-10T10:05:43Z"
+		},
+		{
 			"checksumSHA1": "WI5P8MbnHHGqzuQje+qFoQSUHgk=",
 			"path": "github.com/ONSdigital/go-ns/avro",
 			"revision": "c45be7d1a146fdaf45f65304f09c7952a9aaf2cb",
@@ -21,10 +45,16 @@
 			"revisionTime": "2017-12-08T11:11:03Z"
 		},
 		{
-			"checksumSHA1": "qqaN4hllMTNueffB5bcz8xQnwX0=",
+			"checksumSHA1": "pKcxDjeX3ToJDRINdLg+ivvfWHk=",
 			"path": "github.com/ONSdigital/go-ns/kafka",
-			"revision": "b7a9d79bc028131d34399e7ef420b73007786202",
-			"revisionTime": "2018-01-23T16:28:19Z"
+			"revision": "2fc750b6f187bf2eb39013f81c7496d5248297e4",
+			"revisionTime": "2018-01-29T15:37:26Z"
+		},
+		{
+			"checksumSHA1": "XbSiXGCB8t+JqZYicmXRtY5oeDc=",
+			"path": "github.com/ONSdigital/go-ns/kafka/kafkatest",
+			"revision": "2fc750b6f187bf2eb39013f81c7496d5248297e4",
+			"revisionTime": "2018-01-29T15:37:26Z"
 		},
 		{
 			"checksumSHA1": "AjbjbhFVAOP/1NU5HL+uy+X/yJo=",
@@ -200,6 +230,12 @@
 			"path": "github.com/pierrec/xxHash/xxHash32",
 			"revision": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6",
 			"revisionTime": "2017-07-14T08:24:55Z"
+		},
+		{
+			"checksumSHA1": "rJab1YdNhQooDiBWNnt7TLWPyBU=",
+			"path": "github.com/pkg/errors",
+			"revision": "f15c970de5b76fac0b59abb32d62c17cc7bed265",
+			"revisionTime": "2017-10-18T19:55:50Z"
 		},
 		{
 			"checksumSHA1": "KAzbLjI9MzW2tjfcAsK75lVRp6I=",

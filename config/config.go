@@ -27,6 +27,7 @@ type Config struct {
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
 	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
 	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
+	ErrorProducerTopic                string        `envconfig:"ERROR_PRODUCER_TOPIC"`
 }
 
 // NewConfig creates the config object
@@ -50,6 +51,7 @@ func NewConfig() (*Config, error) {
 		DatasetAPIAuthToken:               "FD0108EA-825D-411C-9B1D-41EF7727F465",
 		DatabaseAddress:                   "bolt://localhost:7687",
 		DatabasePoolSize:                  30,
+		ErrorProducerTopic:                "import-error",
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
