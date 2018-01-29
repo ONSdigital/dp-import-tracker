@@ -21,10 +21,10 @@
 			"revisionTime": "2017-12-08T11:11:03Z"
 		},
 		{
-			"checksumSHA1": "lUqiCTOoWg3IhyenCyYvqbw64OE=",
+			"checksumSHA1": "qqaN4hllMTNueffB5bcz8xQnwX0=",
 			"path": "github.com/ONSdigital/go-ns/kafka",
-			"revision": "c45be7d1a146fdaf45f65304f09c7952a9aaf2cb",
-			"revisionTime": "2017-12-08T11:11:03Z"
+			"revision": "b7a9d79bc028131d34399e7ef420b73007786202",
+			"revisionTime": "2018-01-23T16:28:19Z"
 		},
 		{
 			"checksumSHA1": "AjbjbhFVAOP/1NU5HL+uy+X/yJo=",

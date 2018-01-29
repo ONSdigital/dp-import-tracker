@@ -415,7 +415,7 @@ func main() {
 		cfg.Brokers,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
-		kafka.OffsetOldest)
+		kafka.OffsetNewest)
 	if err != nil {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.NewInstanceTopic})
 	}
@@ -424,7 +424,7 @@ func main() {
 		cfg.Brokers,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
-		kafka.OffsetOldest)
+		kafka.OffsetNewest)
 	if err != nil {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
@@ -433,7 +433,7 @@ func main() {
 		cfg.Brokers,
 		cfg.HierarchyBuiltTopic,
 		cfg.HierarchyBuiltConsumerGroup,
-		kafka.OffsetOldest)
+		kafka.OffsetNewest)
 	if err != nil {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
