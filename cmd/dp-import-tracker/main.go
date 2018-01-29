@@ -463,7 +463,7 @@ func main() {
 	hierarchyBuiltAsyncConsumer := kafka.NewAsyncConsumer()
 	hierarchyBuiltAsyncConsumer.Consume(hierarchyBuiltConsumer, hierarchyBuiltHandler.Handle)
 
-	searchBuiltConsumer, err := kafka.NewConsumerGroup(
+	searchIndexBuiltConsumer, err := kafka.NewConsumerGroup(
 		cfg.Brokers,
 		cfg.SearchBuiltTopic,
 		cfg.SearchBuiltConsumerGroup,
@@ -471,6 +471,10 @@ func main() {
 	if err != nil {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.SearchBuiltTopic})
 	}
+
+	searchIndexBuiltHandler := event.NewSearchIndexBuiltHandler(mainContext, datasetAPI, errorHandler)
+	searchIndexBuiltAsyncConsumer := kafka.NewAsyncConsumer()
+	searchIndexBuiltAsyncConsumer.Consume(searchIndexBuiltConsumer, searchIndexBuiltHandler.Handle)
 
 	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
 	if err != nil {
@@ -549,32 +553,7 @@ func main() {
 				}
 				insertedMessage.Commit()
 
-			case searchBuiltMessage := <-searchBuiltConsumer.Incoming():
-				var event events.SearchIndexBuilt
-				if err = events.HierarchyBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
-
-					// todo: call error reporter
-					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
-
-				} else {
-
-					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Debug("processing search index built message", logData)
-
-					if _, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
-						mainContext,
-						event.InstanceID,
-						event.DimensionName); err != nil {
-
-						// todo: call error reporter
-						log.ErrorC("failed to update instance with hierarchy built status", err, logData)
-					}
-					log.Debug("updated instance with hierarchy built. committing message", logData)
-				}
-
-				searchBuiltMessage.Commit()
 			}
-
 		}
 		log.Info("main loop completed", nil)
 	}()
@@ -635,19 +614,6 @@ func main() {
 		}
 	})
 
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
-		} else {
-			log.Debug("listen stopped", log.Data{"topic": cfg.SearchBuiltTopic})
-		}
-		<-mainLoopEndedChan
-		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
-			log.ErrorC("bad close", err, log.Data{"topic": cfg.SearchBuiltTopic})
-		}
-	})
-
 	// background httpServer shutdown
 	backgroundAndCount(&waitCount, reduceWaits, func() {
 		var err error
@@ -659,6 +625,9 @@ func main() {
 
 	hierarchyBuiltAsyncConsumer.Close(shutdownContext)
 	hierarchyBuiltConsumer.Close(shutdownContext)
+
+	searchIndexBuiltAsyncConsumer.Close(shutdownContext)
+	searchIndexBuiltConsumer.Close(shutdownContext)
 
 	// loop until context is done (cancelled or timeout) NOTE: waitCount==0 cancels the context
 	for contextRunning := true; contextRunning; {

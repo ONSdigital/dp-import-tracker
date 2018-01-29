@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	lockStoreMockUpdateInstanceWithHierarchyBuilt sync.RWMutex
+	lockStoreMockUpdateInstanceWithHierarchyBuilt   sync.RWMutex
+	lockStoreMockUpdateInstanceWithSearchIndexBuilt sync.RWMutex
 )
 
 // StoreMock is a mock implementation of Store.
@@ -21,6 +22,9 @@ var (
 //             UpdateInstanceWithHierarchyBuiltFunc: func(ctx context.Context, instanceID string, dimensionID string) (bool, error) {
 // 	               panic("TODO: mock out the UpdateInstanceWithHierarchyBuilt method")
 //             },
+//             UpdateInstanceWithSearchIndexBuiltFunc: func(ctx context.Context, instanceID string, dimensionID string) (bool, error) {
+// 	               panic("TODO: mock out the UpdateInstanceWithSearchIndexBuilt method")
+//             },
 //         }
 //
 //         // TODO: use mockedStore in code that requires Store
@@ -31,10 +35,22 @@ type StoreMock struct {
 	// UpdateInstanceWithHierarchyBuiltFunc mocks the UpdateInstanceWithHierarchyBuilt method.
 	UpdateInstanceWithHierarchyBuiltFunc func(ctx context.Context, instanceID string, dimensionID string) (bool, error)
 
+	// UpdateInstanceWithSearchIndexBuiltFunc mocks the UpdateInstanceWithSearchIndexBuilt method.
+	UpdateInstanceWithSearchIndexBuiltFunc func(ctx context.Context, instanceID string, dimensionID string) (bool, error)
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// UpdateInstanceWithHierarchyBuilt holds details about calls to the UpdateInstanceWithHierarchyBuilt method.
 		UpdateInstanceWithHierarchyBuilt []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// InstanceID is the instanceID argument value.
+			InstanceID string
+			// DimensionID is the dimensionID argument value.
+			DimensionID string
+		}
+		// UpdateInstanceWithSearchIndexBuilt holds details about calls to the UpdateInstanceWithSearchIndexBuilt method.
+		UpdateInstanceWithSearchIndexBuilt []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// InstanceID is the instanceID argument value.
@@ -81,5 +97,44 @@ func (mock *StoreMock) UpdateInstanceWithHierarchyBuiltCalls() []struct {
 	lockStoreMockUpdateInstanceWithHierarchyBuilt.RLock()
 	calls = mock.calls.UpdateInstanceWithHierarchyBuilt
 	lockStoreMockUpdateInstanceWithHierarchyBuilt.RUnlock()
+	return calls
+}
+
+// UpdateInstanceWithSearchIndexBuilt calls UpdateInstanceWithSearchIndexBuiltFunc.
+func (mock *StoreMock) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID string, dimensionID string) (bool, error) {
+	if mock.UpdateInstanceWithSearchIndexBuiltFunc == nil {
+		panic("moq: StoreMock.UpdateInstanceWithSearchIndexBuiltFunc is nil but Store.UpdateInstanceWithSearchIndexBuilt was just called")
+	}
+	callInfo := struct {
+		Ctx         context.Context
+		InstanceID  string
+		DimensionID string
+	}{
+		Ctx:         ctx,
+		InstanceID:  instanceID,
+		DimensionID: dimensionID,
+	}
+	lockStoreMockUpdateInstanceWithSearchIndexBuilt.Lock()
+	mock.calls.UpdateInstanceWithSearchIndexBuilt = append(mock.calls.UpdateInstanceWithSearchIndexBuilt, callInfo)
+	lockStoreMockUpdateInstanceWithSearchIndexBuilt.Unlock()
+	return mock.UpdateInstanceWithSearchIndexBuiltFunc(ctx, instanceID, dimensionID)
+}
+
+// UpdateInstanceWithSearchIndexBuiltCalls gets all the calls that were made to UpdateInstanceWithSearchIndexBuilt.
+// Check the length with:
+//     len(mockedStore.UpdateInstanceWithSearchIndexBuiltCalls())
+func (mock *StoreMock) UpdateInstanceWithSearchIndexBuiltCalls() []struct {
+	Ctx         context.Context
+	InstanceID  string
+	DimensionID string
+} {
+	var calls []struct {
+		Ctx         context.Context
+		InstanceID  string
+		DimensionID string
+	}
+	lockStoreMockUpdateInstanceWithSearchIndexBuilt.RLock()
+	calls = mock.calls.UpdateInstanceWithSearchIndexBuilt
+	lockStoreMockUpdateInstanceWithSearchIndexBuilt.RUnlock()
 	return calls
 }

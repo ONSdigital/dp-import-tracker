@@ -6,4 +6,6 @@ import "context"
 
 type Store interface {
 	UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error)
+
+	UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error)
 }
