@@ -1,10 +1,10 @@
 package main
 
 import (
+	"flag"
 	"github.com/ONSdigital/dp-import/events"
 	"github.com/ONSdigital/go-ns/kafka"
 	"time"
-	"flag"
 )
 
 var instanceID = flag.String("instance", "ac280d98-7211-4b04-9497-40f199396cc3", "")

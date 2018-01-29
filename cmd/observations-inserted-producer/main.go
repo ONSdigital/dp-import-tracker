@@ -1,10 +1,10 @@
 package main
 
 import (
+	"flag"
 	"github.com/ONSdigital/dp-import/events"
 	"github.com/ONSdigital/go-ns/kafka"
 	"time"
-	"flag"
 )
 
 var instanceID = flag.String("instance", "5156253b-e21e-4a73-a783-fb53fabc1211", "")
@@ -22,9 +22,9 @@ func main() {
 
 	producer, _ := kafka.NewProducer(brokers, *topic, int(2000000))
 
-	event := events.ObservationsInserted {
-		InstanceID: *instanceID,
-		ObservationsInserted:int32(*observationsInserted),
+	event := events.ObservationsInserted{
+		InstanceID:           *instanceID,
+		ObservationsInserted: int32(*observationsInserted),
 	}
 
 	bytes, error := events.ObservationsInsertedSchema.Marshal(event)
