@@ -46,9 +46,9 @@ type trackedInstance struct {
 	jobID                     string
 }
 
-func (instance trackedInstance) AllHierarchiesAreImported() bool {
+func (instance trackedInstance) AllSearchIndexesAreBuilt() bool {
 
-	for _, task := range instance.buildHierarchyTasks {
+	for _, task := range instance.buildSearchTasks {
 		if !task.isComplete {
 			return false
 		}
@@ -109,7 +109,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 			tempCopy.buildHierarchyTasks[task.CodeListID] = hierarchyTask
 		}
 
-		for _, task := range instanceFromAPI.ImportTasks.BuildSearchTasks {
+		for _, task := range instanceFromAPI.ImportTasks.BuildSearchIndexTasks {
 			searchTask := tempCopy.buildSearchTasks[task.DimensionName]
 			searchTask.isComplete = task.State == "completed"
 			tempCopy.buildSearchTasks[task.DimensionName] = searchTask
@@ -142,7 +142,7 @@ func createSearchTaskMapFromInstance(instance api.Instance) map[string]buildSear
 	buildSearchTasks := make(map[string]buildSearchTask, 0)
 
 	if instance.ImportTasks != nil {
-		for _, task := range instance.ImportTasks.BuildSearchTasks {
+		for _, task := range instance.ImportTasks.BuildSearchIndexTasks {
 			buildSearchTasks[task.DimensionName] = buildSearchTask{
 				isComplete:    task.State == "completed",
 				dimensionName: task.DimensionName,
@@ -170,9 +170,9 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 				totalObservations:         instance.NumberOfObservations,
 				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 				observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
-				jobID:                     instance.Links.Job.ID,
-				buildHierarchyTasks:       hierarchyTasks,
-				buildSearchTasks:          searchTasks,
+				jobID:               instance.Links.Job.ID,
+				buildHierarchyTasks: hierarchyTasks,
+				buildSearchTasks:    searchTasks,
 			}
 		}
 
@@ -297,7 +297,7 @@ func manageActiveInstanceEvents(
 						}
 					}
 				} else if trackedInstances[instanceID].observationInsertComplete &&
-					trackedInstances[instanceID].AllHierarchiesAreImported() {
+					trackedInstances[instanceID].AllSearchIndexesAreBuilt() {
 
 					// assume no error, i.e. that updating works, so we can stopTracking
 					stopTracking = true
@@ -334,7 +334,7 @@ func manageActiveInstanceEvents(
 			trackedInstances[newInstanceMsg.InstanceID] = trackedInstance{
 				totalObservations:         -1,
 				observationsInsertedCount: 0,
-				jobID:                     newInstanceMsg.JobID,
+				jobID: newInstanceMsg.JobID,
 			}
 
 		case updateObservationsInserted := <-updateInstanceWithObservationsInsertedChan:
@@ -438,6 +438,15 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
 
+	searchBuiltConsumer, err := kafka.NewConsumerGroup(
+		cfg.Brokers,
+		cfg.SearchBuiltTopic,
+		cfg.SearchBuiltConsumerGroup,
+		kafka.OffsetNewest)
+	if err != nil {
+		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.SearchBuiltTopic})
+	}
+
 	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
 	if err != nil {
 		logFatal("observation import complete kafka producer error", err, nil)
@@ -495,7 +504,7 @@ func main() {
 			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
 
 				log.Debug("message received on new instance channel", log.Data{
-					"offset":newInstanceMessage.Offset(), "message":newInstanceMessage })
+					"offset": newInstanceMessage.Offset(), "message": newInstanceMessage})
 
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
@@ -506,10 +515,8 @@ func main() {
 				newInstanceMessage.Commit()
 			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
 
-
 				log.Debug("message received on observation inserted channel", log.Data{
-					"offset":insertedMessage.Offset(), "message":insertedMessage })
-
+					"offset": insertedMessage.Offset(), "message": insertedMessage})
 
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
@@ -551,7 +558,35 @@ func main() {
 				}
 
 				hierarchyBuiltMessage.Commit()
+
+			case searchBuiltMessage := <-searchBuiltConsumer.Incoming():
+				var event events.SearchIndexBuilt
+				if err = events.HierarchyBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
+
+					// todo: call error reporter
+					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+
+				} else {
+
+					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
+					log.Debug("processing search index built message", logData)
+
+					if isFatal, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
+						mainContext,
+						event.InstanceID,
+						event.DimensionName); err != nil {
+
+						if isFatal {
+							// todo: call error reporter
+							log.ErrorC("failed to update instance with hierarchy built status", err, logData)
+						}
+					}
+					log.Debug("updated instance with hierarchy built. committing message", logData)
+				}
+
+				searchBuiltMessage.Commit()
 			}
+
 		}
 		log.Info("main loop completed", nil)
 	}()
@@ -622,6 +657,19 @@ func main() {
 		<-mainLoopEndedChan
 		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
 			log.ErrorC("bad close", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+		}
+	})
+
+	backgroundAndCount(&waitCount, reduceWaits, func() {
+		var err error
+		if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
+		} else {
+			log.Debug("listen stopped", log.Data{"topic": cfg.SearchBuiltTopic})
+		}
+		<-mainLoopEndedChan
+		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
+			log.ErrorC("bad close", err, log.Data{"topic": cfg.SearchBuiltTopic})
 		}
 	})
 
