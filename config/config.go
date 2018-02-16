@@ -15,6 +15,8 @@ type Config struct {
 	ObservationsInsertedConsumerGroup string        `envconfig:"IMPORT_OBSERVATIONS_INSERTED_CONSUMER_GROUP"`
 	HierarchyBuiltTopic               string        `envconfig:"HIERARCHY_BUILT_TOPIC"`
 	HierarchyBuiltConsumerGroup       string        `envconfig:"HIERARCHY_BUILT_CONSUMER_GROUP"`
+	SearchBuiltTopic                  string        `envconfig:"SEARCH_BUILT_TOPIC"`
+	SearchBuiltConsumerGroup          string        `envconfig:"SEARCH_BUILT_CONSUMER_GROUP"`
 	DataImportCompleteTopic           string        `envconfig:"DATA_IMPORT_COMPLETE_TOPIC"`
 	Brokers                           []string      `envconfig:"KAFKA_ADDR"`
 	ImportAPIAddr                     string        `envconfig:"IMPORT_API_ADDR"`
@@ -37,6 +39,8 @@ func NewConfig() (*Config, error) {
 		ObservationsInsertedConsumerGroup: "dp-import-tracker",
 		HierarchyBuiltTopic:               "hierarchy-built",
 		HierarchyBuiltConsumerGroup:       "dp-import-tracker",
+		SearchBuiltTopic:                  "search-built",
+		SearchBuiltConsumerGroup:          "dp-import-tracker",
 		DataImportCompleteTopic:           "data-import-complete",
 		Brokers:                           []string{"localhost:9092"},
 		ImportAPIAddr:                     "http://localhost:21800",

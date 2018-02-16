@@ -42,15 +42,16 @@ type Instance struct {
 	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
 }
 
-// InstanceImportTasks is a list of tasks relevant to this import
+// InstanceImportTasks represents all of the tasks required to complete an import job.
 type InstanceImportTasks struct {
-	ImportObservations  *ImportObservationsTask `bson:"import_observations,omitempty" json:"import_observations"`
-	BuildHierarchyTasks []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"   json:"build_hierarchies"`
+	ImportObservations    *ImportObservationsTask `bson:"import_observations,omitempty"  json:"import_observations"`
+	BuildHierarchyTasks   []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"    json:"build_hierarchies"`
+	BuildSearchIndexTasks []*BuildSearchIndexTask `bson:"build_search_indexes,omitempty" json:"build_search_indexes"`
 }
 
 // ImportObservationsTask represents the task of importing instance observation data into the database.
 type ImportObservationsTask struct {
-	State                string `bson:"state,omitempty" json:"state,omitempty"`
+	State                string `bson:"state,omitempty"             json:"state,omitempty"`
 	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
 }
 
@@ -59,6 +60,12 @@ type BuildHierarchyTask struct {
 	State         string `bson:"state,omitempty"          json:"state,omitempty"`
 	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
 	CodeListID    string `bson:"code_list_id,omitempty"   json:"code_list_id,omitempty"`
+}
+
+// BuildSearchIndexTask represents a task of importing a single search index into search.
+type BuildSearchIndexTask struct {
+	State         string `bson:"state,omitempty"          json:"state,omitempty"`
+	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
 }
 
 // InstanceLinks holds all links for an instance
@@ -136,6 +143,17 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
 	logData["jsonBytes"] = jsonBody
 	return errorChecker("UpdateInstanceWithHierarchyBuilt", err, httpCode, &logData)
+}
+
+// UpdateInstanceWithSearchIndexBuilt marks a search index build task state as completed for an instance.
+func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
+	path := api.url + "/instances/" + instanceID + "/import_tasks"
+	logData := log.Data{"url": path}
+	jsonUpload := []byte(`{"build_search_indexes":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
+	logData["jsonUpload"] = jsonUpload
+	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
+	logData["jsonBytes"] = jsonBody
+	return errorChecker("UpdateInstanceWithSearchIndexBuilt", err, httpCode, &logData)
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
