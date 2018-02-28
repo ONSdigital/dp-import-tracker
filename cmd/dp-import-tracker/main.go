@@ -42,12 +42,13 @@ type trackedInstance struct {
 	observationsInsertedCount int64
 	observationInsertComplete bool
 	buildHierarchyTasks       map[string]buildHierarchyTask
+	buildSearchTasks          map[string]buildSearchTask
 	jobID                     string
 }
 
-func (instance trackedInstance) AllHierarchiesAreImported() bool {
+func (instance trackedInstance) AllSearchIndexesAreBuilt() bool {
 
-	for _, task := range instance.buildHierarchyTasks {
+	for _, task := range instance.buildSearchTasks {
 		if !task.isComplete {
 			return false
 		}
@@ -61,6 +62,11 @@ type buildHierarchyTask struct {
 	isComplete    bool
 	dimensionName string
 	codeListID    string
+}
+
+type buildSearchTask struct {
+	isComplete    bool
+	dimensionName string
 }
 
 type trackedInstanceList map[string]trackedInstance
@@ -91,13 +97,22 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	tempCopy.observationInsertComplete = instanceFromAPI.ImportTasks.ImportObservations.State == "completed"
 
 	if tempCopy.buildHierarchyTasks == nil {
-		taskMap := createTaskMapFromInstance(instanceFromAPI)
-		tempCopy.buildHierarchyTasks = taskMap
+		hierarchyTasks := createHierarchyTaskMapFromInstance(instanceFromAPI)
+		tempCopy.buildHierarchyTasks = hierarchyTasks
+
+		searchTasks := createSearchTaskMapFromInstance(instanceFromAPI)
+		tempCopy.buildSearchTasks = searchTasks
 	} else {
 		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
 			hierarchyTask := tempCopy.buildHierarchyTasks[task.CodeListID]
 			hierarchyTask.isComplete = task.State == "completed"
 			tempCopy.buildHierarchyTasks[task.CodeListID] = hierarchyTask
+		}
+
+		for _, task := range instanceFromAPI.ImportTasks.BuildSearchIndexTasks {
+			searchTask := tempCopy.buildSearchTasks[task.DimensionName]
+			searchTask.isComplete = task.State == "completed"
+			tempCopy.buildSearchTasks[task.DimensionName] = searchTask
 		}
 	}
 
@@ -105,13 +120,13 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	return false, nil
 }
 
-func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
+func createHierarchyTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
 
-	taskMap := make(map[string]buildHierarchyTask, 0)
+	buildHierarchyTasks := make(map[string]buildHierarchyTask, 0)
 
 	if instance.ImportTasks != nil {
 		for _, task := range instance.ImportTasks.BuildHierarchyTasks {
-			taskMap[task.CodeListID] = buildHierarchyTask{
+			buildHierarchyTasks[task.CodeListID] = buildHierarchyTask{
 				isComplete:    task.State == "completed",
 				dimensionName: task.DimensionName,
 				codeListID:    task.CodeListID,
@@ -119,7 +134,23 @@ func createTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyT
 		}
 	}
 
-	return taskMap
+	return buildHierarchyTasks
+}
+
+func createSearchTaskMapFromInstance(instance api.Instance) map[string]buildSearchTask {
+
+	buildSearchTasks := make(map[string]buildSearchTask, 0)
+
+	if instance.ImportTasks != nil {
+		for _, task := range instance.ImportTasks.BuildSearchIndexTasks {
+			buildSearchTasks[task.DimensionName] = buildSearchTask{
+				isComplete:    task.State == "completed",
+				dimensionName: task.DimensionName,
+			}
+		}
+	}
+
+	return buildSearchTasks
 }
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
@@ -131,7 +162,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 
-		taskMap := createTaskMapFromInstance(instance)
+		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
+		searchTasks := createSearchTaskMapFromInstance(instance)
 
 		if instance.ImportTasks != nil {
 			trackedInstances[instance.InstanceID] = trackedInstance{
@@ -139,7 +171,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 				observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
 				jobID:               instance.Links.Job.ID,
-				buildHierarchyTasks: taskMap,
+				buildHierarchyTasks: hierarchyTasks,
+				buildSearchTasks:    searchTasks,
 			}
 		}
 
@@ -228,7 +261,7 @@ func manageActiveInstanceEvents(
 
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
 					log.ErrorC("could not update instance", err, log.Data{"instanceID": instanceID, "isFatal": isFatal})
-
+					stopTracking = isFatal
 				} else if !trackedInstances[instanceID].observationInsertComplete &&
 					trackedInstances[instanceID].totalObservations > 0 &&
 					trackedInstances[instanceID].observationsInsertedCount >= trackedInstances[instanceID].totalObservations {
@@ -264,7 +297,7 @@ func manageActiveInstanceEvents(
 						}
 					}
 				} else if trackedInstances[instanceID].observationInsertComplete &&
-					trackedInstances[instanceID].AllHierarchiesAreImported() {
+					trackedInstances[instanceID].AllSearchIndexesAreBuilt() {
 
 					// assume no error, i.e. that updating works, so we can stopTracking
 					stopTracking = true
@@ -405,6 +438,15 @@ func main() {
 		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
 
+	searchBuiltConsumer, err := kafka.NewConsumerGroup(
+		cfg.Brokers,
+		cfg.SearchBuiltTopic,
+		cfg.SearchBuiltConsumerGroup,
+		kafka.OffsetNewest)
+	if err != nil {
+		logFatal("could not obtain consumer", err, log.Data{"topic": cfg.SearchBuiltTopic})
+	}
+
 	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
 	if err != nil {
 		logFatal("observation import complete kafka producer error", err, nil)
@@ -508,7 +550,35 @@ func main() {
 				}
 
 				hierarchyBuiltMessage.Commit()
+
+			case searchBuiltMessage := <-searchBuiltConsumer.Incoming():
+				var event events.SearchIndexBuilt
+				if err = events.SearchIndexBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
+
+					// todo: call error reporter
+					log.ErrorC("unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+
+				} else {
+
+					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
+					log.Debug("processing search index built message", logData)
+
+					if isFatal, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
+						mainContext,
+						event.InstanceID,
+						event.DimensionName); err != nil {
+
+						if isFatal {
+							// todo: call error reporter
+							log.ErrorC("failed to update instance with hierarchy built status", err, logData)
+						}
+					}
+					log.Debug("updated instance with search index built. committing message", logData)
+				}
+
+				searchBuiltMessage.Commit()
 			}
+
 		}
 		log.Info("main loop completed", nil)
 	}()
@@ -579,6 +649,19 @@ func main() {
 		<-mainLoopEndedChan
 		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
 			log.ErrorC("bad close", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
+		}
+	})
+
+	backgroundAndCount(&waitCount, reduceWaits, func() {
+		var err error
+		if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			log.ErrorC("bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
+		} else {
+			log.Debug("listen stopped", log.Data{"topic": cfg.SearchBuiltTopic})
+		}
+		<-mainLoopEndedChan
+		if err = searchBuiltConsumer.Close(shutdownContext); err != nil {
+			log.ErrorC("bad close", err, log.Data{"topic": cfg.SearchBuiltTopic})
 		}
 	})
 
