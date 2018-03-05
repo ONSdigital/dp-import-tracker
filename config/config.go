@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"encoding/json"
+
 	"github.com/kelseyhightower/envconfig"
 )
 
@@ -44,7 +45,7 @@ func NewConfig() (*Config, error) {
 		DataImportCompleteTopic:           "data-import-complete",
 		Brokers:                           []string{"localhost:9092"},
 		ImportAPIAddr:                     "http://localhost:21800",
-		ImportAPIAuthToken:                "FD0108EA-825D-411C-9B1D-41EF7727F465",
+		ImportAPIAuthToken:                "0C30662F-6CF6-43B0-A96A-954772267FF5",
 		DatasetAPIAddr:                    "http://localhost:22000",
 		ShutdownTimeout:                   5 * time.Second,
 		DatasetAPIAuthToken:               "FD0108EA-825D-411C-9B1D-41EF7727F465",
