@@ -460,8 +460,8 @@ func main() {
 	client := rchttp.DefaultClient
 	client.MaxRetries = 4
 
-	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ImportAPIAuthToken)
-	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.DatasetAPIAuthToken)
+	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ServiceAuthToken, cfg.ImportAPIAuthToken)
+	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.ServiceAuthToken, cfg.DatasetAPIAuthToken)
 
 	// create context for all work
 	mainContext, mainContextCancel := context.WithCancel(context.Background())

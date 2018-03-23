@@ -26,6 +26,7 @@ type Config struct {
 	DatasetAPIAuthToken               string        `envconfig:"DATASET_API_AUTH_TOKEN"               json:"-"`
 	ShutdownTimeout                   time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
+	ServiceAuthToken                  string        `envconfig:"SERVICE_AUTH_TOKEN"                   json:"-"`
 	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
 	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
 }
@@ -34,6 +35,7 @@ type Config struct {
 func NewConfig() (*Config, error) {
 	cfg := Config{
 		BindAddr:                          ":21300",
+		ServiceAuthToken:                  "AB0A5CFA-3C55-4FA8-AACC-F98039BED0AC",
 		NewInstanceTopic:                  "input-file-available",
 		NewInstanceConsumerGroup:          "dp-import-tracker",
 		ObservationsInsertedTopic:         "import-observations-inserted",

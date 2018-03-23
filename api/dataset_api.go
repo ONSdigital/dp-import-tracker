@@ -14,17 +14,19 @@ import (
 
 // DatasetAPI aggregates a client and url and other common data for accessing the API
 type DatasetAPI struct {
-	client    *rchttp.Client
-	url       string
-	authToken string
+	client              *rchttp.Client
+	url                 string
+	authToken           string
+	datasetAPIAuthToken string
 }
 
 // NewDatasetAPI creates an DatasetAPI object
-func NewDatasetAPI(client *rchttp.Client, url string, authToken string) *DatasetAPI {
+func NewDatasetAPI(client *rchttp.Client, url, authToken, datasetAPIAuthToken string) *DatasetAPI {
 	return &DatasetAPI{
-		client:    client,
-		url:       url,
-		authToken: authToken,
+		client:              client,
+		url:                 url,
+		authToken:           authToken,
+		datasetAPIAuthToken: datasetAPIAuthToken,
 	}
 }
 
@@ -188,9 +190,9 @@ func errorChecker(tag string, err error, httpCode int, logData *log.Data) (isFat
 }
 
 func (api *DatasetAPI) get(ctx context.Context, path string, vars url.Values) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
+	return callAPI(ctx, api.client, "GET", path, api.authToken, api.datasetAPIAuthToken, vars)
 }
 
 func (api *DatasetAPI) put(ctx context.Context, path string, payload []byte) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
+	return callAPI(ctx, api.client, "PUT", path, api.authToken, api.datasetAPIAuthToken, payload)
 }
