@@ -27,6 +27,7 @@ type Config struct {
 	ShutdownTimeout                   time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
 	ServiceAuthToken                  string        `envconfig:"SERVICE_AUTH_TOKEN"                   json:"-"`
+	ZebedeeURL                        string        `envconfig:"ZEBEDEE_URL"`
 	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
 	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
 }
@@ -49,6 +50,7 @@ func NewConfig() (*Config, error) {
 		ImportAPIAddr:                     "http://localhost:21800",
 		ImportAPIAuthToken:                "0C30662F-6CF6-43B0-A96A-954772267FF5",
 		DatasetAPIAddr:                    "http://localhost:22000",
+		ZebedeeURL:                        "http://localhost:8082",
 		ShutdownTimeout:                   5 * time.Second,
 		DatasetAPIAuthToken:               "FD0108EA-825D-411C-9B1D-41EF7727F465",
 		DatabaseAddress:                   "bolt://localhost:7687",
@@ -57,6 +59,8 @@ func NewConfig() (*Config, error) {
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
 	}
+
+	cfg.ServiceAuthToken = "Bearer " + cfg.ServiceAuthToken
 
 	return &cfg, nil
 }
