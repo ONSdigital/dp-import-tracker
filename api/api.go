@@ -11,10 +11,12 @@ import (
 	"github.com/ONSdigital/go-ns/rchttp"
 )
 
+const authorizationHeader = "Authorization"
+
 func callAPI(
 	ctx context.Context,
 	client *rchttp.Client,
-	method, path, authToken string,
+	method, path, authToken, datasetAPIAuthToken string,
 	payload interface{}) ([]byte, int, error,
 ) {
 
@@ -48,7 +50,10 @@ func callAPI(
 		return nil, 0, err
 	}
 
-	req.Header.Set("Internal-token", authToken)
+	// TODO Remove `Internal-token` header, now uses "Authorization" header
+	req.Header.Set("Internal-token", datasetAPIAuthToken)
+	req.Header.Set(authorizationHeader, authToken)
+
 	resp, err := client.Do(ctx, req)
 	if err != nil {
 		log.ErrorC("Failed to action API", err, logData)
@@ -61,7 +66,6 @@ func callAPI(
 	}
 
 	defer func() {
-		var err error
 		if err = resp.Body.Close(); err != nil {
 			log.ErrorC("closing body", err, nil)
 		}

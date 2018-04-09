@@ -170,5 +170,5 @@ func getMockDatasetAPI(expectRequest http.Request, mockedHTTPResponse MockedHTTP
 		w.WriteHeader(mockedHTTPResponse.StatusCode)
 		fmt.Fprintln(w, mockedHTTPResponse.Body)
 	}))
-	return NewDatasetAPI(client, ts.URL, "123")
+	return NewDatasetAPI(client, ts.URL, "123", "")
 }
