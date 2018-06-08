@@ -30,6 +30,7 @@ type Config struct {
 	ZebedeeURL                        string        `envconfig:"ZEBEDEE_URL"`
 	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
 	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
+	CheckCompleteInterval             time.Duration `envconfig:"CHECK_COMPLETE_INTERVAL"`
 }
 
 // NewConfig creates the config object
@@ -55,6 +56,7 @@ func NewConfig() (*Config, error) {
 		DatasetAPIAuthToken:               "FD0108EA-825D-411C-9B1D-41EF7727F465",
 		DatabaseAddress:                   "bolt://localhost:7687",
 		DatabasePoolSize:                  30,
+		CheckCompleteInterval:             2000 * time.Millisecond,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err

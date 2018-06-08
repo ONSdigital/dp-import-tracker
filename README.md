@@ -48,6 +48,7 @@ service identity check in zebedee.
 | DATABASE_ADDRESS                            | bolt://localhost:7687                 | The address of the database
 | SERVICE_AUTH_TOKEN                          | AB0A5CFA-3C55-4FA8-AACC-F98039BED0AC  | The service authorization token
 | ZEBEDEE_URL                                 | http://localhost:8082                 | The host name for Zebedee
+| CHECK_COMPLETE_INTERVAL                     | 2000ms                                | how much time between checking for instances
 
 ### Contributing
 

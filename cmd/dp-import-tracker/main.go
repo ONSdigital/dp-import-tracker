@@ -71,8 +71,6 @@ type buildSearchTask struct {
 
 type trackedInstanceList map[string]trackedInstance
 
-var checkForCompleteInstancesTick = time.Millisecond * 2000
-
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
 func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx context.Context, datasetAPI *api.DatasetAPI, instanceID string) (bool, error) {
 	instanceFromAPI, isFatal, err := datasetAPI.GetInstance(ctx, instanceID)
@@ -226,19 +224,28 @@ func manageActiveInstanceEvents(
 	instanceLoopDoneChan chan bool,
 	store store.Storer,
 	dataImportCompleteProducer kafka.Producer,
+	checkCompleteInterval time.Duration,
 ) {
 
 	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
-	if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
-		logFatal("could not obtain initial instance list", err, nil)
+	for i := 1; i <= 10; i++ {
+		if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
+			if i == 10 {
+				logFatal("failed to obtain initial instance list", err, nil)
+			}
+			log.ErrorC("could not obtain initial instance list - will retry", err, log.Data{"attempt": i})
+			time.Sleep(time.Duration(i*1000) * time.Millisecond)
+			continue
+		}
+		break
 	}
 
 	tickerChan := make(chan bool)
 	go func() {
-		for range time.Tick(checkForCompleteInstancesTick) {
+		for range time.Tick(checkCompleteInterval) {
 			tickerChan <- true
 		}
 	}()
@@ -478,7 +485,9 @@ func main() {
 		importAPI,
 		instanceLoopEndedChan,
 		store,
-		dataImportCompleteProducer)
+		dataImportCompleteProducer,
+		cfg.CheckCompleteInterval,
+	)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
