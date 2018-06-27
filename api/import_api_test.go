@@ -29,7 +29,7 @@ func getMockImportAPI(expectRequest http.Request, mockedHTTPResponse MockedHTTPR
 		w.WriteHeader(mockedHTTPResponse.StatusCode)
 		fmt.Fprintln(w, mockedHTTPResponse.Body)
 	}))
-	return NewImportAPI(client, ts.URL, "345", "")
+	return NewImportAPI(client, ts.URL, "345")
 }
 
 func TestGetImportJob(t *testing.T) {

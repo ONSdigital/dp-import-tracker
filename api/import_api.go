@@ -13,10 +13,9 @@ import (
 
 // ImportAPI aggregates a client and url and other common data for accessing the API
 type ImportAPI struct {
-	client              *rchttp.Client
-	url                 string
-	authToken           string
-	datasetAPIAuthToken string
+	client    *rchttp.Client
+	url       string
+	authToken string
 }
 
 // ImportJob comes from the Import API and links an import job to its (other) instances
@@ -37,12 +36,11 @@ type InstanceLink struct {
 }
 
 // NewImportAPI creates an ImportAPI object
-func NewImportAPI(client *rchttp.Client, url, authToken, datasetAPIAuthToken string) *ImportAPI {
+func NewImportAPI(client *rchttp.Client, url, authToken string) *ImportAPI {
 	return &ImportAPI{
-		client:              client,
-		url:                 url,
-		authToken:           authToken,
-		datasetAPIAuthToken: datasetAPIAuthToken,
+		client:    client,
+		url:       url,
+		authToken: authToken,
 	}
 }
 
@@ -99,9 +97,9 @@ func (api *ImportAPI) UpdateImportJobState(ctx context.Context, jobID string, ne
 }
 
 func (api *ImportAPI) get(ctx context.Context, path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "GET", path, api.authToken, api.datasetAPIAuthToken, vars)
+	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
 }
 
 func (api *ImportAPI) put(ctx context.Context, path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "PUT", path, api.authToken, api.datasetAPIAuthToken, payload)
+	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
 }

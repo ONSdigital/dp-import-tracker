@@ -40,9 +40,7 @@ service identity check in zebedee.
 | DATA_IMPORT_COMPLETE_TOPIC                  | data-import-complete                  | topic name for hierarchies ready to be imported
 | KAFKA_ADDR                                  | localhost:9092                        | A list of kafka brokers
 | IMPORT_API_ADDR                             | http://localhost:21800                | The address of Import API
-| IMPORT_API_AUTH_TOKEN                       | 0C30662F-6CF6-43B0-A96A-954772267FF5  | Authentication token for access to import API
 | DATASET_API_ADDR                            | http://localhost:22000                | The address of Dataset API
-| DATASET_API_AUTH_TOKEN                      | FD0108EA-825D-411C-9B1D-41EF7727F465  | Authentication token for access to Dataset API
 | BIND_ADDR                                   | :21300                                | address to listen on for healthcheck requests
 | GRACEFUL_SHUTDOWN_TIMEOUT                   | 5s                                    | how much grace time to allow when shutting down (time.duration)
 | DATABASE_ADDRESS                            | bolt://localhost:7687                 | The address of the database
