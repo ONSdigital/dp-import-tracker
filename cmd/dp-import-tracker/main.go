@@ -225,19 +225,22 @@ func manageActiveInstanceEvents(
 	store store.Storer,
 	dataImportCompleteProducer kafka.Producer,
 	checkCompleteInterval time.Duration,
+	initialiseListInterval time.Duration,
+	initialiseListAttempts int,
 ) {
 
 	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= initialiseListAttempts; i++ {
 		if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
-			if i == 10 {
-				logFatal("failed to obtain initial instance list", err, nil)
+			if i == initialiseListAttempts {
+				log.ErrorC("failed to obtain initial instance list", err, log.Data{"attempt": i})
+				return
 			}
 			log.ErrorC("could not obtain initial instance list - will retry", err, log.Data{"attempt": i})
-			time.Sleep(time.Duration(i*1000) * time.Millisecond)
+			time.Sleep(initialiseListInterval)
 			continue
 		}
 		break
@@ -487,6 +490,8 @@ func main() {
 		store,
 		dataImportCompleteProducer,
 		cfg.CheckCompleteInterval,
+		cfg.InitialiseListInterval,
+		cfg.InitialiseListAttempts,
 	)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown

@@ -29,6 +29,8 @@ type Config struct {
 	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
 	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
 	CheckCompleteInterval             time.Duration `envconfig:"CHECK_COMPLETE_INTERVAL"`
+	InitialiseListInterval            time.Duration `envconfig:"INITIALISE_LIST_INTERVAL"`
+	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
 }
 
 // NewConfig creates the config object
@@ -53,6 +55,8 @@ func NewConfig() (*Config, error) {
 		DatabaseAddress:                   "bolt://localhost:7687",
 		DatabasePoolSize:                  30,
 		CheckCompleteInterval:             2000 * time.Millisecond,
+		InitialiseListInterval:            4 * time.Second,
+		InitialiseListAttempts:            20,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
