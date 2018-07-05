@@ -38,12 +38,13 @@ type insertedObservationsEvent struct {
 }
 
 type trackedInstance struct {
-	totalObservations         int64
-	observationsInsertedCount int64
-	observationInsertComplete bool
-	buildHierarchyTasks       map[string]buildHierarchyTask
-	buildSearchTasks          map[string]buildSearchTask
-	jobID                     string
+	totalObservations            int64
+	observationsInsertedCount    int64
+	observationInsertComplete    bool
+	buildHierarchyTasks          map[string]buildHierarchyTask
+	buildSearchTasks             map[string]buildSearchTask
+	jobID                        string
+	begunObservationInsertUpdate bool
 }
 
 func (instance trackedInstance) AllSearchIndexesAreBuilt() bool {
@@ -157,11 +158,17 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 	if err != nil {
 		return isFatal, err
 	}
-	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 
 		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
 		searchTasks := createSearchTaskMapFromInstance(instance)
+
+		log.Info("adding instance for tracking", log.Data{
+			"instance_id":    instance.InstanceID,
+			"current_state":  instance.State,
+			"hierarchy_taks": hierarchyTasks,
+			"search_tasks":   searchTasks,
+		})
 
 		if instance.ImportTasks != nil {
 			trackedInstances[instance.InstanceID] = trackedInstance{
@@ -190,7 +197,6 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 	}
 
 	targetState := "completed"
-	log.Debug("checking", log.Data{"API insts": importJobFromAPI.Links.Instances})
 	for _, instanceRef := range importJobFromAPI.Links.Instances {
 		if instanceRef.ID == completedInstanceID {
 			continue
@@ -208,6 +214,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
+	log.Debug("calling import api to update job state", log.Data{"job_id": jobID, "setting_state": targetState})
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
 		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
@@ -259,7 +266,6 @@ func manageActiveInstanceEvents(
 			log.Debug("manageActiveInstanceEvents: loop ending (context done)", nil)
 			looping = false
 		case <-tickerChan:
-			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
 
 				stopTracking := false
@@ -354,7 +360,13 @@ func manageActiveInstanceEvents(
 			if _, ok := trackedInstances[instanceID]; !ok {
 				log.Info("warning: import instance not in tracked list for update", logData)
 			}
-			log.Debug("updating import instance", logData)
+			if ti, ok := trackedInstances[instanceID]; ok {
+				if !ti.begunObservationInsertUpdate {
+					log.Info("updating number of observations inserted for instance", log.Data{"instance_id": instanceID})
+					ti.begunObservationInsertUpdate = true
+					trackedInstances[instanceID] = ti
+				}
+			}
 			if isFatal, err := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
 				logData["is_fatal"] = isFatal
 				log.ErrorC("failed to add inserts to instance", err, logData)
