@@ -357,10 +357,9 @@ func manageActiveInstanceEvents(
 			instanceID := updateObservationsInserted.InstanceID
 			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
 			logData := log.Data{"instance_id": instanceID, "observations_inserted": observationsInserted}
-			if _, ok := trackedInstances[instanceID]; !ok {
+			if ti, ok := trackedInstances[instanceID]; !ok {
 				log.Info("warning: import instance not in tracked list for update", logData)
-			}
-			if ti, ok := trackedInstances[instanceID]; ok {
+			} else {
 				if !ti.begunObservationInsertUpdate {
 					log.Info("updating number of observations inserted for instance", log.Data{"instance_id": instanceID})
 					ti.begunObservationInsertUpdate = true
