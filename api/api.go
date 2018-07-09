@@ -7,16 +7,15 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/ONSdigital/go-ns/common"
 	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
 )
 
-const authorizationHeader = "Authorization"
-
 func callAPI(
 	ctx context.Context,
 	client *rchttp.Client,
-	method, path, authToken, datasetAPIAuthToken string,
+	method, path, authToken string,
 	payload interface{}) ([]byte, int, error,
 ) {
 
@@ -50,9 +49,7 @@ func callAPI(
 		return nil, 0, err
 	}
 
-	// TODO Remove `Internal-token` header, now uses "Authorization" header
-	req.Header.Set("Internal-token", datasetAPIAuthToken)
-	req.Header.Set(authorizationHeader, authToken)
+	req.Header.Set(common.AuthHeaderKey, authToken)
 
 	resp, err := client.Do(ctx, req)
 	if err != nil {

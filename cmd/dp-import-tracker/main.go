@@ -38,12 +38,13 @@ type insertedObservationsEvent struct {
 }
 
 type trackedInstance struct {
-	totalObservations         int64
-	observationsInsertedCount int64
-	observationInsertComplete bool
-	buildHierarchyTasks       map[string]buildHierarchyTask
-	buildSearchTasks          map[string]buildSearchTask
-	jobID                     string
+	totalObservations            int64
+	observationsInsertedCount    int64
+	observationInsertComplete    bool
+	buildHierarchyTasks          map[string]buildHierarchyTask
+	buildSearchTasks             map[string]buildSearchTask
+	jobID                        string
+	begunObservationInsertUpdate bool
 }
 
 func (instance trackedInstance) AllSearchIndexesAreBuilt() bool {
@@ -70,8 +71,6 @@ type buildSearchTask struct {
 }
 
 type trackedInstanceList map[string]trackedInstance
-
-var checkForCompleteInstancesTick = time.Millisecond * 2000
 
 // updateInstanceFromDatasetAPI updates a specific import instance with the current counts of expected/complete observations
 func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx context.Context, datasetAPI *api.DatasetAPI, instanceID string) (bool, error) {
@@ -159,11 +158,17 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 	if err != nil {
 		return isFatal, err
 	}
-	log.Debug("instances", log.Data{"api": instancesFromAPI})
 	for _, instance := range instancesFromAPI {
 
 		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
 		searchTasks := createSearchTaskMapFromInstance(instance)
+
+		log.Info("adding instance for tracking", log.Data{
+			"instance_id":    instance.InstanceID,
+			"current_state":  instance.State,
+			"hierarchy_taks": hierarchyTasks,
+			"search_tasks":   searchTasks,
+		})
 
 		if instance.ImportTasks != nil {
 			trackedInstances[instance.InstanceID] = trackedInstance{
@@ -192,7 +197,6 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 	}
 
 	targetState := "completed"
-	log.Debug("checking", log.Data{"API insts": importJobFromAPI.Links.Instances})
 	for _, instanceRef := range importJobFromAPI.Links.Instances {
 		if instanceRef.ID == completedInstanceID {
 			continue
@@ -210,6 +214,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
+	log.Debug("calling import api to update job state", log.Data{"job_id": jobID, "setting_state": targetState})
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
 		log.ErrorC("CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
@@ -226,19 +231,31 @@ func manageActiveInstanceEvents(
 	instanceLoopDoneChan chan bool,
 	store store.Storer,
 	dataImportCompleteProducer kafka.Producer,
+	checkCompleteInterval time.Duration,
+	initialiseListInterval time.Duration,
+	initialiseListAttempts int,
 ) {
 
 	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
-	if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
-		logFatal("could not obtain initial instance list", err, nil)
+	for i := 1; i <= initialiseListAttempts; i++ {
+		if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
+			if i == initialiseListAttempts {
+				log.ErrorC("failed to obtain initial instance list", err, log.Data{"attempt": i})
+				return
+			}
+			log.ErrorC("could not obtain initial instance list - will retry", err, log.Data{"attempt": i})
+			time.Sleep(initialiseListInterval)
+			continue
+		}
+		break
 	}
 
 	tickerChan := make(chan bool)
 	go func() {
-		for range time.Tick(checkForCompleteInstancesTick) {
+		for range time.Tick(checkCompleteInterval) {
 			tickerChan <- true
 		}
 	}()
@@ -249,7 +266,6 @@ func manageActiveInstanceEvents(
 			log.Debug("manageActiveInstanceEvents: loop ending (context done)", nil)
 			looping = false
 		case <-tickerChan:
-			log.Debug("check import Instances", log.Data{"q": trackedInstances})
 			for instanceID := range trackedInstances {
 
 				stopTracking := false
@@ -341,10 +357,15 @@ func manageActiveInstanceEvents(
 			instanceID := updateObservationsInserted.InstanceID
 			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
 			logData := log.Data{"instance_id": instanceID, "observations_inserted": observationsInserted}
-			if _, ok := trackedInstances[instanceID]; !ok {
+			if ti, ok := trackedInstances[instanceID]; !ok {
 				log.Info("warning: import instance not in tracked list for update", logData)
+			} else {
+				if !ti.begunObservationInsertUpdate {
+					log.Info("updating number of observations inserted for instance", log.Data{"instance_id": instanceID})
+					ti.begunObservationInsertUpdate = true
+					trackedInstances[instanceID] = ti
+				}
 			}
-			log.Debug("updating import instance", logData)
 			if isFatal, err := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
 				logData["is_fatal"] = isFatal
 				log.ErrorC("failed to add inserts to instance", err, logData)
@@ -460,8 +481,8 @@ func main() {
 	client := rchttp.DefaultClient
 	client.MaxRetries = 4
 
-	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ServiceAuthToken, cfg.ImportAPIAuthToken)
-	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.ServiceAuthToken, cfg.DatasetAPIAuthToken)
+	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ServiceAuthToken)
+	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.ServiceAuthToken)
 
 	// create context for all work
 	mainContext, mainContextCancel := context.WithCancel(context.Background())
@@ -478,7 +499,11 @@ func main() {
 		importAPI,
 		instanceLoopEndedChan,
 		store,
-		dataImportCompleteProducer)
+		dataImportCompleteProducer,
+		cfg.CheckCompleteInterval,
+		cfg.InitialiseListInterval,
+		cfg.InitialiseListAttempts,
+	)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler

@@ -6,8 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ONSdigital/go-ns/log"
-	// TODO change back to upstream repo when changes merged
-	bolt "github.com/ONSdigital/golang-neo4j-bolt-driver"
+	bolt "github.com/johnnadratowski/golang-neo4j-bolt-driver"
 )
 
 const countObservationsStmt = "MATCH (o:`_%s_observation`) RETURN COUNT(o)"
