@@ -12,6 +12,13 @@ job "dp-import-tracker" {
   group "publishing" {
     count = "{{PUBLISHING_TASK_COUNT}}"
 
+    restart {
+      attempts = 3
+      delay    = "15s"
+      interval = "1m"
+      mode     = "delay"
+    }
+
     task "dp-import-tracker" {
       driver = "exec"
 
