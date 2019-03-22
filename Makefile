@@ -16,7 +16,7 @@ build:
 	@mkdir -p $(BUILD_ARCH)/$(BIN_DIR)
 	go build -o $(BUILD_ARCH)/$(BIN_DIR)/$(MAIN) cmd/$(MAIN)/main.go
 debug:
-	HUMAN_LOG=1 go run -race cmd/$(MAIN)/main.go
+	GRAPH_DRIVER_TYPE="neo4j" GRAPH_ADDR="bolt://localhost:7687" HUMAN_LOG=1 go run -race cmd/$(MAIN)/main.go
 
 test:
 	go test -cover $(shell go list ./... | grep -v /vendor/)

@@ -26,8 +26,6 @@ type Config struct {
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
 	ServiceAuthToken                  string        `envconfig:"SERVICE_AUTH_TOKEN"                   json:"-"`
 	ZebedeeURL                        string        `envconfig:"ZEBEDEE_URL"`
-	DatabaseAddress                   string        `envconfig:"DATABASE_ADDRESS"                     json:"-"`
-	DatabasePoolSize                  int           `envconfig:"DATABASE_POOL_SIZE"`
 	CheckCompleteInterval             time.Duration `envconfig:"CHECK_COMPLETE_INTERVAL"`
 	InitialiseListInterval            time.Duration `envconfig:"INITIALISE_LIST_INTERVAL"`
 	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
@@ -52,8 +50,6 @@ func NewConfig() (*Config, error) {
 		DatasetAPIAddr:                    "http://localhost:22000",
 		ZebedeeURL:                        "http://localhost:8082",
 		ShutdownTimeout:                   5 * time.Second,
-		DatabaseAddress:                   "bolt://localhost:7687",
-		DatabasePoolSize:                  30,
 		CheckCompleteInterval:             2000 * time.Millisecond,
 		InitialiseListInterval:            4 * time.Second,
 		InitialiseListAttempts:            20,
