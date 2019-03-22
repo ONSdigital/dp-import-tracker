@@ -5,74 +5,86 @@
 		{
 			"checksumSHA1": "QsDPQ6jy7ypJqNUHNTxMWWAA/tw=",
 			"path": "github.com/ONSdigital/dp-code-list-api/models",
-			"revision": "b2a3299d3895c180b460d70db1ea2454457f089e",
-			"revisionTime": "2019-02-28T16:38:39Z"
+			"revision": "6565cb0ef559f51d351fe45df7c8667d4e5e4df9",
+			"revisionTime": "2019-03-19T10:24:26Z"
+		},
+		{
+			"checksumSHA1": "o+ldH+dr4mTedWWPnV580F3l2hM=",
+			"path": "github.com/ONSdigital/dp-dimension-importer/model",
+			"revision": "8616db557e455b7a7ae787f5a275561ed41f91de",
+			"revisionTime": "2019-03-20T12:31:42Z"
 		},
 		{
 			"checksumSHA1": "Wgm21ZO6di1DHWJfn6WgBlk7pZA=",
 			"path": "github.com/ONSdigital/dp-graph/config",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "i04/Hpm9KnEi8nJX8ydrIW6TTcs=",
+			"checksumSHA1": "uWVaPGfrR9vB46fdCE6PvlPYa6U=",
 			"path": "github.com/ONSdigital/dp-graph/graph",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "+plgeWVQWF7BWEIx96dI2zbv5fg=",
+			"checksumSHA1": "kH4GZFrKmM5GY3Szm/aq5yP80uY=",
 			"path": "github.com/ONSdigital/dp-graph/graph/driver",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "ow9ELvyboFdEuAXV424T8XyH56c=",
+			"checksumSHA1": "LDQgTCTT5UGjNMsdvuYgrj4SGQU=",
 			"path": "github.com/ONSdigital/dp-graph/mock",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "uCUPfUyxrBVKVmWrWW0whCpngjo=",
+			"checksumSHA1": "SFfCgbsdIGPwpZzqJ46/drynMnI=",
 			"path": "github.com/ONSdigital/dp-graph/neo4j",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "E0BX6KCkUpS+5guctCpiCKzI9w0=",
+			"checksumSHA1": "o+JNHlKV99+BlVRMmtndBQkJRZc=",
 			"path": "github.com/ONSdigital/dp-graph/neo4j/driver",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "qf21qdplzjUqDsrsqqBvIk6TgUI=",
+			"checksumSHA1": "gXMtlID3BDxhhM3RlZxmX0d+3kE=",
 			"path": "github.com/ONSdigital/dp-graph/neo4j/mapper",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "UhKBkvpvTsUCHQi7g0SGTh/YV5c=",
+			"checksumSHA1": "sm/AshXYnyiIe27aibhp2L9tbM4=",
 			"path": "github.com/ONSdigital/dp-graph/neo4j/query",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
 			"checksumSHA1": "4LiEZE5u3kqCBvzigVEhXcjac2g=",
 			"path": "github.com/ONSdigital/dp-graph/observation",
-			"revision": "a1d3d9cb689c807627f57e606daa006a58097ea6",
-			"revisionTime": "2019-03-07T15:07:03Z"
+			"revision": "60b1cd0340d3343d0902ccc9d54214f222280ab0",
+			"revisionTime": "2019-03-22T10:44:50Z"
 		},
 		{
-			"checksumSHA1": "Ps6lrGCq5gKy4/P8uRr8/HIRCL0=",
+			"checksumSHA1": "sX7Krcb3Xi+QkzybgFfBj6hJ81A=",
 			"path": "github.com/ONSdigital/dp-hierarchy-api/models",
-			"revision": "4be416797d578a81cc1ef60d34e5a3651f3cbd91",
-			"revisionTime": "2019-03-05T16:11:58Z"
+			"revision": "b7915975e299aa903610d0ea228908475f94e309",
+			"revisionTime": "2019-03-19T13:44:29Z"
 		},
 		{
 			"checksumSHA1": "7ktFjGIGhu47N6olqwLqilyjXNw=",
 			"path": "github.com/ONSdigital/dp-import/events",
 			"revision": "df648e35e269dc39ed14c0d0ae73971be60101d7",
 			"revisionTime": "2018-05-01T06:31:09Z"
+		},
+		{
+			"checksumSHA1": "VETtCYCwbZOldq+GK7vzoMWFyng=",
+			"path": "github.com/ONSdigital/dp-observation-importer/models",
+			"revision": "5b4c3d290d0783110b1c78cbdbea3efb5cd3314b",
+			"revisionTime": "2019-03-22T10:46:31Z"
 		},
 		{
 			"checksumSHA1": "9LfiZTadna8+cENwW0AFNp1pJH4=",

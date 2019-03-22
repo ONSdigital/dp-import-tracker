@@ -16,6 +16,7 @@ type DB struct {
 	driver.Hierarchy
 	driver.Instance
 	driver.Observation
+	driver.Dimension
 }
 
 type Subsets struct {
@@ -23,6 +24,7 @@ type Subsets struct {
 	Hierarchy   bool
 	Instance    bool
 	Observation bool
+	Dimension   bool
 }
 
 func NewCodeListStore(ctx context.Context) (*DB, error) {
@@ -39,6 +41,10 @@ func NewObservationStore(ctx context.Context) (*DB, error) {
 
 func NewInstanceStore(ctx context.Context) (*DB, error) {
 	return New(ctx, Subsets{Instance: true})
+}
+
+func NewDimensionStore(ctx context.Context) (*DB, error) {
+	return New(ctx, Subsets{Dimension: true})
 }
 
 func New(ctx context.Context, choice Subsets) (*DB, error) {
@@ -76,12 +82,20 @@ func New(ctx context.Context, choice Subsets) (*DB, error) {
 		}
 	}
 
+	var dimension driver.Dimension
+	if choice.Dimension {
+		if dimension, ok = cfg.Driver.(driver.Dimension); !ok {
+			return nil, errors.New("configured driver does not implement dimension subset")
+		}
+	}
+
 	return &DB{
 		cfg.Driver,
 		codelist,
 		hierarchy,
 		instance,
 		observation,
+		dimension,
 	}, nil
 }
 

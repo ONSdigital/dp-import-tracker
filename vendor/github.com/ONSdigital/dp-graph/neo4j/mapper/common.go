@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"reflect"
+	"strconv"
 
 	"github.com/ONSdigital/golang-neo4j-bolt-driver/structures/graph"
 	"github.com/pkg/errors"
@@ -127,6 +128,17 @@ func GetCount() (*int64, ResultMapper) {
 		if !ok {
 			return castingError(int64(0), r.Data[0])
 		}
+		return nil
+	}
+}
+
+func GetNodeID(id *string) ResultMapper {
+	return func(r *Result) error {
+		nodeID, ok := r.Data[0].(int64)
+		if !ok {
+			return errors.New("unexpected error while casting node id to int64")
+		}
+		*id = strconv.FormatInt(nodeID, 10)
 		return nil
 	}
 }

@@ -3,12 +3,122 @@ package neo4j
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
+	"github.com/ONSdigital/dp-dimension-importer/model"
 	"github.com/ONSdigital/dp-graph/neo4j/query"
 	"github.com/ONSdigital/go-ns/log"
 	bolt "github.com/ONSdigital/golang-neo4j-bolt-driver"
 	"github.com/pkg/errors"
 )
+
+// CreateInstanceConstraint creates a constraint on observations inserted for this instance.
+func (n *Neo4j) CreateInstanceConstraint(ctx context.Context, i *model.Instance) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+
+	createStmt := fmt.Sprintf(query.CreateInstanceObservationConstraint, i.InstanceID)
+
+	if _, err := n.Exec(createStmt, nil); err != nil {
+		return errors.Wrap(err, "neo4j.Exec returned an error when creating observation constraint")
+	}
+
+	log.Info("created observation constraint", log.Data{"instance_id": i.InstanceID, "statement": createStmt})
+	return nil
+}
+
+// Create creates an Instance node in a neo4j graph database
+func (n *Neo4j) CreateInstance(ctx context.Context, i *model.Instance) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+
+	createStmt := fmt.Sprintf(query.CreateInstance, i.InstanceID, strings.Join(i.CSVHeader, ","))
+
+	if _, err := n.Exec(createStmt, nil); err != nil {
+		return errors.Wrap(err, "neo4j.Exec returned an error")
+	}
+
+	log.Info("create instance success", log.Data{"instance_id": i.InstanceID, "statement": createStmt})
+	return nil
+}
+
+// AddDimensions list of the specified Instance node.
+func (n *Neo4j) AddDimensions(ctx context.Context, i *model.Instance) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+
+	stmt := fmt.Sprintf(query.AddInstanceDimensions, i.InstanceID)
+	params := map[string]interface{}{"dimensions_list": i.Dimensions}
+
+	if _, err := n.Exec(stmt, params); err != nil {
+		return errors.Wrap(err, "neo4j.Exec returned an error")
+	}
+
+	log.Info("add instance dimensions success", log.Data{
+		"statement":   stmt,
+		"params":      params,
+		"instance_id": i.InstanceID,
+		"dimensions":  i.Dimensions,
+	})
+	return nil
+}
+
+// CreateCodeRelationship links an instance to a code for the given dimension option
+func (n *Neo4j) CreateCodeRelationship(ctx context.Context, i *model.Instance, codeListID, code string) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+
+	if len(code) == 0 {
+		return errors.New("code is required but was empty")
+	}
+
+	stmt := fmt.Sprintf(query.CreateInstanceToCodeRelationship, i.InstanceID, codeListID)
+	params := map[string]interface{}{"code": code}
+
+	logDebug := map[string]interface{}{
+		"statement":   stmt,
+		"params":      params,
+		"instance_id": i.InstanceID,
+		"code":        code,
+	}
+
+	result, err := n.Exec(stmt, params)
+	if err != nil {
+		return errors.Wrap(err, "neo4j.Exec returned an error")
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "result.RowsAffected() returned an error")
+	}
+
+	logDebug["rows_affected"] = rowsAffected
+	if rowsAffected != 1 {
+		return errors.New("unexpected number of rows affected. expected 1 but was " + strconv.FormatInt(rowsAffected, 10))
+	}
+
+	log.Info("create code relationship success", logDebug)
+	return nil
+}
+
+// InstanceExists returns true if an instance already exists with the provided instanceID.
+func (n *Neo4j) InstanceExists(ctx context.Context, i *model.Instance) (bool, error) {
+	c, err := n.Count(fmt.Sprintf(query.CountInstance, i.InstanceID))
+	if err != nil {
+		return false, errors.Wrap(err, "neo4j.Count returned an error")
+	}
+
+	return c >= 1, nil
+}
+
+func (n *Neo4j) CountInsertedObservations(ctx context.Context, instanceID string) (count int64, err error) {
+	return n.Count(fmt.Sprintf(query.CountObservations, instanceID))
+}
 
 func (n *Neo4j) AddVersionDetailsToInstance(ctx context.Context, instanceID string, datasetID string, edition string, version int) error {
 	data := log.Data{
@@ -60,10 +170,6 @@ func (n *Neo4j) SetInstanceIsPublished(ctx context.Context, instanceID string) e
 
 	log.InfoCtx(ctx, "neoClient SetInstanceIsPublished: update successful", data)
 	return nil
-}
-
-func (n Neo4j) CountInsertedObservations(instanceID string) (count int64, err error) {
-	return n.Count(fmt.Sprintf(query.CountObservations, instanceID))
 }
 
 func checkPropertiesSet(result bolt.Result, expected int64) error {

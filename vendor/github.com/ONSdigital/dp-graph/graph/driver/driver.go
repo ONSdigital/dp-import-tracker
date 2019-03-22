@@ -3,13 +3,35 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	codelistModels "github.com/ONSdigital/dp-code-list-api/models"
+	importModels "github.com/ONSdigital/dp-dimension-importer/model"
 	"github.com/ONSdigital/dp-graph/observation"
 	hierarchyModels "github.com/ONSdigital/dp-hierarchy-api/models"
+	obsModels "github.com/ONSdigital/dp-observation-importer/models"
 )
 
 var ErrNotFound = errors.New("not found")
+
+// ErrAttemptsExceededLimit is returned when the number of attempts has reaced
+// the maximum permitted
+type ErrAttemptsExceededLimit struct {
+	WrappedErr error
+}
+
+func (e ErrAttemptsExceededLimit) Error() string {
+	return fmt.Sprintf("number of attempts to execute statement exceeded: %s", e.WrappedErr.Error())
+}
+
+// ErrNonRetriable is returned when the wrapped error type is not retriable
+type ErrNonRetriable struct {
+	WrappedErr error
+}
+
+func (e ErrNonRetriable) Error() string {
+	return fmt.Sprintf("received a non retriable error from neo4j: %s", e.WrappedErr.Error())
+}
 
 type Driver interface {
 	Close(ctx context.Context) error
@@ -45,10 +67,20 @@ type Hierarchy interface {
 // Observation provides filtered observation data in CSV rows.
 type Observation interface {
 	StreamCSVRows(ctx context.Context, filter *observation.Filter, limit *int) (observation.StreamRowReader, error)
+	InsertObservationBatch(ctx context.Context, attempt int, instanceID string, observations []*obsModels.Observation, dimensionIDs map[string]string) error
 }
 
 type Instance interface {
+	CreateInstanceConstraint(ctx context.Context, i *importModels.Instance) error
+	CreateInstance(ctx context.Context, i *importModels.Instance) error
+	AddDimensions(ctx context.Context, i *importModels.Instance) error
+	CreateCodeRelationship(ctx context.Context, i *importModels.Instance, codeListID, code string) error
+	InstanceExists(ctx context.Context, i *importModels.Instance) (bool, error)
 	CountInsertedObservations(ctx context.Context, instanceID string) (count int64, err error)
 	AddVersionDetailsToInstance(ctx context.Context, instanceID string, datasetID string, edition string, version int) error
 	SetInstanceIsPublished(ctx context.Context, instanceID string) error
+}
+
+type Dimension interface {
+	InsertDimension(ctx context.Context, cache map[string]string, i *importModels.Instance, d *importModels.Dimension) (*importModels.Dimension, error)
 }

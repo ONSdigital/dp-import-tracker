@@ -1,12 +1,12 @@
 package neo4j
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"strings"
 	"time"
 
+	graph "github.com/ONSdigital/dp-graph/graph/driver"
 	"github.com/ONSdigital/dp-graph/neo4j/driver"
 	"github.com/ONSdigital/go-ns/log"
 	neoErrors "github.com/ONSdigital/golang-neo4j-bolt-driver/errors"
@@ -48,28 +48,18 @@ func New(dbAddr string, size, timeout, retries int) (n *Neo4j, err error) {
 	}, nil
 }
 
-// ErrAttemptsExceededLimit is returned when the number of attempts has reaced
-// the maximum permitted
-type ErrAttemptsExceededLimit struct {
-	WrappedErr error
-}
-
-func (e ErrAttemptsExceededLimit) Error() string {
-	return fmt.Sprintf("number of attempts to execute statement exceeded: %s", e.WrappedErr.Error())
-}
-
 func (n *Neo4j) checkAttempts(err error, instanceID string, attempt int) error {
 	if !isTransientError(err) {
 		log.Info("received an error from neo4j that cannot be retried",
 			log.Data{"instance_id": instanceID, "error": err})
 
-		return err
+		return graph.ErrNonRetriable{err}
 	}
 
 	time.Sleep(getSleepTime(attempt, 20*time.Millisecond))
 
 	if attempt >= n.maxRetries {
-		return ErrAttemptsExceededLimit{err}
+		return graph.ErrAttemptsExceededLimit{err}
 	}
 
 	return nil

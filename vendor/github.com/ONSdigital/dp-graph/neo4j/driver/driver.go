@@ -6,7 +6,6 @@ import (
 
 	"github.com/ONSdigital/dp-graph/graph/driver"
 	"github.com/ONSdigital/dp-graph/neo4j/mapper"
-	"github.com/ONSdigital/go-ns/log"
 	bolt "github.com/ONSdigital/golang-neo4j-bolt-driver"
 	"github.com/pkg/errors"
 )
@@ -59,9 +58,7 @@ func (n *NeoDriver) read(query string, params map[string]interface{}, mapp mappe
 
 	rows, err := c.QueryNeo(query, params)
 	if err != nil {
-		msg := "error executing neo4j query"
-		log.ErrorC(msg, err, nil)
-		return errors.WithMessage(err, msg)
+		return errors.WithMessage(err, "error executing neo4j query")
 	}
 	defer rows.Close()
 
@@ -69,30 +66,22 @@ func (n *NeoDriver) read(query string, params map[string]interface{}, mapp mappe
 	numOfResults := 0
 results:
 	for {
-
-		log.Info("reading next row", log.Data{"numOfRes": numOfResults})
 		data, meta, nextNeoErr := rows.NextNeo()
 		if nextNeoErr != nil {
 			if nextNeoErr != io.EOF {
-				msg := "extractResults: rows.NextNeo() return unexpected error"
-				log.ErrorC(msg, nextNeoErr, nil)
-				return errors.WithMessage(nextNeoErr, msg)
+				return errors.WithMessage(nextNeoErr, "extractResults: rows.NextNeo() return unexpected error")
 			}
 			break results
 		}
 
 		numOfResults++
 		if single && index > 0 {
-			msg := "non unique results"
-			log.ErrorC(msg, err, nil)
-			return errors.WithMessage(err, msg)
+			return errors.WithMessage(err, "non unique results")
 		}
 
 		if mapp != nil {
 			if err := mapp(&mapper.Result{Data: data, Meta: meta, Index: index}); err != nil {
-				msg := "mapResult returned an error"
-				log.ErrorC(msg, err, nil)
-				return errors.WithMessage(err, msg)
+				return errors.WithMessage(err, "mapResult returned an error")
 			}
 		}
 		index++
@@ -120,7 +109,7 @@ func (n *NeoDriver) StreamRows(query string) (*BoltRowReader, error) {
 
 	// The connection can only be closed once the results have been read, so the caller is responsible for
 	// calling .CLose() which will ultimately release the connection back into the pool
-	return NewBoltRowReader(rows), nil
+	return NewBoltRowReader(rows, conn), nil
 }
 
 func (n *NeoDriver) Count(query string) (count int64, err error) {
