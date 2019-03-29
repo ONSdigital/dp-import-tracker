@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ONSdigital/dp-graph/graph"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
-	"github.com/ONSdigital/dp-import-tracker/store"
 	"github.com/ONSdigital/dp-import/events"
 	"github.com/ONSdigital/go-ns/kafka"
 	"github.com/ONSdigital/go-ns/log"
@@ -229,7 +229,7 @@ func manageActiveInstanceEvents(
 	datasetAPI *api.DatasetAPI,
 	importAPI *api.ImportAPI,
 	instanceLoopDoneChan chan bool,
-	store store.Storer,
+	store *graph.DB,
 	dataImportCompleteProducer kafka.Producer,
 	checkCompleteInterval time.Duration,
 	initialiseListInterval time.Duration,
@@ -289,7 +289,7 @@ func manageActiveInstanceEvents(
 
 					log.Debug("import observations possibly complete - will check db", logData)
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
-					countObservations, err := store.CountInsertedObservations(instanceID)
+					countObservations, err := store.CountInsertedObservations(context.Background(), instanceID)
 					if err != nil {
 						log.ErrorC("Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
@@ -473,7 +473,7 @@ func main() {
 		logFatal("observation import complete kafka producer error", err, nil)
 	}
 
-	store, err := store.New(cfg.DatabaseAddress, cfg.DatabasePoolSize)
+	graphDB, err := graph.NewInstanceStore(context.Background())
 	if err != nil {
 		logFatal("could not obtain database connection", err, nil)
 	}
@@ -498,7 +498,7 @@ func main() {
 		datasetAPI,
 		importAPI,
 		instanceLoopEndedChan,
-		store,
+		graphDB,
 		dataImportCompleteProducer,
 		cfg.CheckCompleteInterval,
 		cfg.InitialiseListInterval,
@@ -659,7 +659,7 @@ func main() {
 		if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
 			log.ErrorC("bad close", err, log.Data{"topic": cfg.NewInstanceTopic})
 		}
-		if err = store.Close(shutdownContext); err != nil {
+		if err = graphDB.Close(shutdownContext); err != nil {
 			log.ErrorC("bad db close", err, nil)
 		}
 	})

@@ -47,7 +47,6 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | DATASET_API_ADDR                            | http://localhost:22000                | The address of Dataset API
 | BIND_ADDR                                   | :21300                                | address to listen on for healthcheck requests
 | GRACEFUL_SHUTDOWN_TIMEOUT                   | 5s                                    | how much grace time to allow when shutting down (time.duration)
-| DATABASE_ADDRESS                            | bolt://localhost:7687                 | The address of the database
 | SERVICE_AUTH_TOKEN                          | AB0A5CFA-3C55-4FA8-AACC-F98039BED0AC  | The service authorization token
 | ZEBEDEE_URL                                 | http://localhost:8082                 | The host name for Zebedee
 | CHECK_COMPLETE_INTERVAL                     | 2000ms                                | how much time between checking for instances
