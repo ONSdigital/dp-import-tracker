@@ -15,6 +15,9 @@ import (
 
 const transientErrorPrefix = "Neo.TransientError"
 
+// Neo4j is a database driver allowing connection to Neo4j
+// and providing implementations of the functions defined
+// by the graph/driver.go interfaces
 type Neo4j struct {
 	driver.Neo4jDriver
 
@@ -22,6 +25,7 @@ type Neo4j struct {
 	timeout    int
 }
 
+// New sets reasonable neo4j specific defaults and instantiates a driver
 func New(dbAddr string, size, timeout, retries int) (n *Neo4j, err error) {
 	//set defaults if not provided
 	if size == 0 {
