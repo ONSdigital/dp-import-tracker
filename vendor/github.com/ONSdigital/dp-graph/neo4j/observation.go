@@ -76,6 +76,8 @@ func createOptionList(name string, opts []string) string {
 	return fmt.Sprintf("(%s)", strings.Join(q, " OR "))
 }
 
+// InsertObservationBatch creates a batch query based on a provided list of
+// observations and attempts to insert them by bulk to the database
 func (n *Neo4j) InsertObservationBatch(ctx context.Context, attempt int, instanceID string, observations []*models.Observation, dimensionIDs map[string]string) error {
 	query := buildInsertObservationQuery(instanceID, observations)
 	if len(query) == 0 {
