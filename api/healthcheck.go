@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/server"
+	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
 )
 
@@ -21,7 +21,7 @@ func StartHealthCheck(bindAddr string, serverDone chan error) {
 
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Error(err, nil)
+			log.Event(context.Background(), "", log.ERROR, log.Error(err))
 			serverDone <- err
 		}
 		close(serverDone)
@@ -35,7 +35,7 @@ func StopHealthCheck(ctx context.Context) error {
 
 // healthCheck returns the health of the application
 func healthCheck(w http.ResponseWriter, r *http.Request) {
-	log.Debug("Healthcheck endpoint.", nil)
+	log.Event(context.Background(), "Healthcheck endpoint.", log.INFO)
 	// TODO future story for implementing healthcheck endpoint properly
 	w.WriteHeader(http.StatusOK)
 }

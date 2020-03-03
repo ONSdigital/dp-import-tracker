@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
+	"github.com/ONSdigital/log.go/log"
 )
 
 // ImportAPI aggregates a client and url and other common data for accessing the API
@@ -63,14 +63,14 @@ func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (Imp
 		isFatal = true
 	}
 	if err != nil {
-		log.ErrorC("GetImportJob", err, logData)
+		log.Event(ctx, "GetImportJob", log.ERROR, log.Error(err), logData)
 		return ImportJob{}, isFatal, err
 	}
 	logData["jsonBody"] = string(jsonBody)
 
 	var importJob ImportJob
 	if err := json.Unmarshal(jsonBody, &importJob); err != nil {
-		log.ErrorC("GetImportJob unmarshall", err, logData)
+		log.Event(ctx, "GetImportJob unmarshall", log.ERROR, log.Error(err), logData)
 		return ImportJob{}, true, err
 	}
 
@@ -90,7 +90,7 @@ func (api *ImportAPI) UpdateImportJobState(ctx context.Context, jobID string, ne
 		err = errors.New("Bad HTTP response")
 	}
 	if err != nil {
-		log.ErrorC("UpdateImportJobState", err, logData)
+		log.Event(ctx, "UpdateImportJobState", log.ERROR, log.Error(err), logData)
 		return err
 	}
 	return nil

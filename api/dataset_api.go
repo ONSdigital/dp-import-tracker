@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
+	"github.com/ONSdigital/log.go/log"
 )
 
 // DatasetAPI aggregates a client and url and other common data for accessing the API
@@ -90,7 +90,7 @@ func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (inst
 	}
 
 	if err = json.Unmarshal(jsonBody, &instance); err != nil {
-		log.ErrorC("GetInstance unmarshall", err, logData)
+		log.Event(ctx, "GetInstance unmarshall", log.ERROR, log.Error(err), logData)
 		isFatal = true
 	}
 	return
@@ -108,7 +108,7 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 
 	var instanceResults InstanceResults
 	if err = json.Unmarshal(jsonBody, &instanceResults); err != nil {
-		log.ErrorC("GetInstances Unmarshal", err, logData)
+		log.Event(ctx, "GetInstances Unmarshal", log.ERROR, log.Error(err), logData)
 		return instances, true, err
 	}
 	return instanceResults.Items, isFatal, nil
@@ -182,7 +182,7 @@ func errorChecker(tag string, err error, httpCode int, logData *log.Data) (isFat
 	}
 	if returnedError != nil {
 		(*logData)["is_fatal"] = isFatal
-		log.ErrorC(tag, returnedError, *logData)
+		log.Event(context.Background(), tag, log.ERROR, log.Error(returnedError), *logData)
 	}
 	return
 }

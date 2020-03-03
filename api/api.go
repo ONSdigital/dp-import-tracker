@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/ONSdigital/go-ns/common"
-	"github.com/ONSdigital/go-ns/log"
 	"github.com/ONSdigital/go-ns/rchttp"
+	"github.com/ONSdigital/log.go/log"
 )
 
 func callAPI(
@@ -23,7 +23,7 @@ func callAPI(
 
 	URL, err := url.Parse(path)
 	if err != nil {
-		log.ErrorC("Failed to create url for API call", err, logData)
+		log.Event(ctx, "Failed to create url for API call", log.ERROR, log.Error(err), logData)
 		return nil, 0, err
 	}
 	path = URL.String()
@@ -45,7 +45,7 @@ func callAPI(
 	}
 	// check req, above, didn't error
 	if err != nil {
-		log.ErrorC("Failed to create request for API", err, logData)
+		log.Event(ctx, "Failed to create request for API", log.ERROR, log.Error(err), logData)
 		return nil, 0, err
 	}
 
@@ -53,24 +53,24 @@ func callAPI(
 
 	resp, err := client.Do(ctx, req)
 	if err != nil {
-		log.ErrorC("Failed to action API", err, logData)
+		log.Event(ctx, "Failed to action API", log.ERROR, log.Error(err), logData)
 		return nil, 0, err
 	}
 
 	logData["httpCode"] = resp.StatusCode
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= 300 {
-		log.Debug("unexpected status code from API", logData)
+		log.Event(ctx, "unexpected status code from API", log.INFO, logData)
 	}
 
 	defer func() {
 		if err = resp.Body.Close(); err != nil {
-			log.ErrorC("closing body", err, nil)
+			log.Event(ctx, "closing body", log.ERROR, log.Error(err), nil)
 		}
 	}()
 
 	jsonBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.ErrorC("Failed to read body from API", err, logData)
+		log.Event(ctx, "Failed to read body from API", log.ERROR, log.Error(err), logData)
 		return nil, resp.StatusCode, err
 	}
 	return jsonBody, resp.StatusCode, nil
