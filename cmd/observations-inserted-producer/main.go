@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"github.com/ONSdigital/dp-import/events"
-	"github.com/ONSdigital/go-ns/kafka"
 	"time"
+
+	"github.com/ONSdigital/dp-import/events"
+	"github.com/ONSdigital/dp-kafka/kafka"
 )
 
 var instanceID = flag.String("instance", "5156253b-e21e-4a73-a783-fb53fabc1211", "")
@@ -16,11 +18,12 @@ var kafkaHost = flag.String("kafka", "localhost:9092", "")
 func main() {
 
 	flag.Parse()
+	ctx := context.Background()
 
 	var brokers []string
 	brokers = append(brokers, *kafkaHost)
 
-	producer, _ := kafka.NewProducer(brokers, *topic, int(2000000))
+	producer, _ := kafka.NewProducer(ctx, brokers, *topic, int(2000000), kafka.CreateProducerChannels())
 
 	event := events.ObservationsInserted{
 		InstanceID:           *instanceID,
@@ -31,9 +34,9 @@ func main() {
 	if error != nil {
 		panic(error)
 	}
-	producer.Output() <- bytes
+	producer.Channels().Output <- bytes
 
 	time.Sleep(time.Duration(time.Second))
 
-	producer.Close(nil)
+	producer.Close(ctx)
 }

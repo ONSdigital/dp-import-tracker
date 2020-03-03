@@ -14,7 +14,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
-	"github.com/ONSdigital/go-ns/kafka"
+	kafka "github.com/ONSdigital/dp-kafka"
 	"github.com/ONSdigital/go-ns/rchttp"
 	"github.com/ONSdigital/log.go/log"
 )
@@ -337,7 +337,7 @@ func manageActiveInstanceEvents(
 			}
 		case newInstanceMsg := <-createInstanceChan:
 			if _, ok := trackedInstances[newInstanceMsg.InstanceID]; ok {
-				log.Event(ctx, "", log.ERROR, log.Error(errors.New("import instance exists"), log.Data{"instanceID": newInstanceMsg}))
+				log.Event(ctx, "", log.ERROR, log.Error(errors.New("import instance exists")), log.Data{"instanceID": newInstanceMsg})
 				continue
 			}
 
@@ -379,7 +379,7 @@ func manageActiveInstanceEvents(
 			}
 		}
 	}
-	log.Info("Instance loop completed", nil)
+	log.Event(ctx, "Instance loop completed", log.INFO)
 }
 
 func produceDataImportCompleteEvents(
@@ -403,7 +403,7 @@ func produceDataImportCompleteEvents(
 			return err
 		}
 
-		dataImportCompleteProducer.Output() <- bytes
+		dataImportCompleteProducer.Channels().Output <- bytes
 	}
 
 	return nil
@@ -417,6 +417,9 @@ func logFatal(ctx context.Context, contextMessage string, err error, data log.Da
 
 func main() {
 	log.Namespace = "dp-import-tracker"
+
+	// create context for all work
+	mainContext, mainContextCancel := context.WithCancel(context.Background())
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
@@ -432,47 +435,70 @@ func main() {
 	httpServerDoneChan := make(chan error)
 	api.StartHealthCheck(cfg.BindAddr, httpServerDoneChan)
 
+	// Create InstanceEvent kafka consumer
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
+		mainContext,
 		cfg.Brokers,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
-		kafka.OffsetNewest)
+		kafka.OffsetNewest,
+		true,
+		kafka.CreateConsumerGroupChannels(true))
 	if err != nil {
-		logFatal(mainContext, mainContext, "could not obtain consumer", err, log.Data{"topic": cfg.NewInstanceTopic})
+		logFatal(mainContext, "could not obtain consumer", err, log.Data{"topic": cfg.NewInstanceTopic})
 	}
 
+	// Create ObservationsInsertedEvent kafka consumer
 	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(
+		mainContext,
 		cfg.Brokers,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
-		kafka.OffsetNewest)
+		kafka.OffsetNewest,
+		true,
+		kafka.CreateConsumerGroupChannels(true))
 	if err != nil {
 		logFatal(mainContext, "could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
 
+	// Create HierarchyBuilt kafka consumer
 	hierarchyBuiltConsumer, err := kafka.NewConsumerGroup(
+		mainContext,
 		cfg.Brokers,
 		cfg.HierarchyBuiltTopic,
 		cfg.HierarchyBuiltConsumerGroup,
-		kafka.OffsetNewest)
+		kafka.OffsetNewest,
+		true,
+		kafka.CreateConsumerGroupChannels(true))
 	if err != nil {
 		logFatal(mainContext, "could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
 
+	// Create SearchBuilt kafka consumer
 	searchBuiltConsumer, err := kafka.NewConsumerGroup(
+		mainContext,
 		cfg.Brokers,
 		cfg.SearchBuiltTopic,
 		cfg.SearchBuiltConsumerGroup,
-		kafka.OffsetNewest)
+		kafka.OffsetNewest,
+		true,
+		kafka.CreateConsumerGroupChannels(true))
 	if err != nil {
 		logFatal(mainContext, "could not obtain consumer", err, log.Data{"topic": cfg.SearchBuiltTopic})
 	}
 
-	dataImportCompleteProducer, err := kafka.NewProducer(cfg.Brokers, cfg.DataImportCompleteTopic, 0)
+	// Create DataImportComplete kafka producer
+	dataImportCompleteProducer, err := kafka.NewProducer(
+		mainContext,
+		cfg.Brokers,
+		cfg.DataImportCompleteTopic,
+		0,
+		kafka.CreateProducerChannels())
 	if err != nil {
 		logFatal(mainContext, "observation import complete kafka producer error", err, nil)
 	}
 
+	// Create GraphDB instance store
 	graphDB, err := graph.NewInstanceStore(context.Background())
 	if err != nil {
 		logFatal(mainContext, "could not obtain database connection", err, nil)
@@ -483,9 +509,6 @@ func main() {
 
 	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ServiceAuthToken)
 	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.ServiceAuthToken)
-
-	// create context for all work
-	mainContext, mainContextCancel := context.WithCancel(context.Background())
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
@@ -517,16 +540,16 @@ func main() {
 			case <-mainContext.Done():
 				log.Event(mainContext, "main loop aborting", log.INFO, log.Data{"ctx_err": mainContext.Err()})
 				looping = false
-			case err = <-observationsInsertedEventConsumer.Errors():
+			case err = <-observationsInsertedEventConsumer.Channels().Errors:
 				log.Event(mainContext, "aborting after consumer error", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
 				looping = false
-			case err = <-newInstanceEventConsumer.Errors():
+			case err = <-newInstanceEventConsumer.Channels().Errors:
 				log.Event(mainContext, "aborting after consumer error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
 				looping = false
 			case err = <-httpServerDoneChan:
 				log.Event(mainContext, "unexpected httpServer exit", log.ERROR, log.Error(err), nil)
 				looping = false
-			case newInstanceMessage := <-newInstanceEventConsumer.Incoming():
+			case newInstanceMessage := <-newInstanceEventConsumer.Channels().Upstream:
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
 					log.Event(mainContext, "TODO handle unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
@@ -534,7 +557,7 @@ func main() {
 					createInstanceChan <- newInstanceEvent
 				}
 				newInstanceMessage.Commit()
-			case insertedMessage := <-observationsInsertedEventConsumer.Incoming():
+			case insertedMessage := <-observationsInsertedEventConsumer.Channels().Upstream:
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
 				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
@@ -544,12 +567,12 @@ func main() {
 					updateInstanceWithObservationsInsertedChan <- insertedUpdate
 					if insertRes := <-insertedUpdate.DoneChan; insertRes == ErrRetry {
 						// do not commit, update was non-fatal (will retry)
-						log.Event(mainContext, "non-commit", log.ERROR, log.Error(errors.New("non-fatal error"), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)}))
+						log.Event(mainContext, "non-commit", log.ERROR, log.Error(errors.New("non-fatal error")), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 						continue
 					}
 				}
 				insertedMessage.Commit()
-			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Incoming():
+			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Channels().Upstream:
 				var event events.HierarchyBuilt
 				if err = events.HierarchyBuiltSchema.Unmarshal(hierarchyBuiltMessage.GetData(), &event); err != nil {
 
@@ -576,7 +599,7 @@ func main() {
 
 				hierarchyBuiltMessage.Commit()
 
-			case searchBuiltMessage := <-searchBuiltConsumer.Incoming():
+			case searchBuiltMessage := <-searchBuiltConsumer.Channels().Upstream:
 				var event events.SearchIndexBuilt
 				if err = events.SearchIndexBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
 
@@ -657,7 +680,7 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Errro(err), log.Data{"topic": cfg.NewInstanceTopic})
+			log.Event(mainContext, "bad close", log.ERROR, log.Errror(err), log.Data{"topic": cfg.NewInstanceTopic})
 		}
 		if err = graphDB.Close(shutdownContext); err != nil {
 			log.Event(mainContext, "bad db close", log.ERROR, log.Error(err), nil)
