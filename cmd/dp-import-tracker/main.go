@@ -10,12 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ONSdigital/dp-api-clients-go/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/importapi"
 	"github.com/ONSdigital/dp-graph/graph"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
 	kafka "github.com/ONSdigital/dp-kafka"
-	"github.com/ONSdigital/go-ns/rchttp"
 	"github.com/ONSdigital/log.go/log"
 )
 
@@ -93,7 +94,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 		tempCopy.observationsInsertedCount = observationsInsertedCount
 	}
 
-	tempCopy.observationInsertComplete = instanceFromAPI.ImportTasks.ImportObservations.State == "completed"
+	tempCopy.observationInsertComplete = instanceFromAPI.ImportTasks.ImportObservations.State == dataset.StateCompleted.String()
 
 	if tempCopy.buildHierarchyTasks == nil {
 		hierarchyTasks := createHierarchyTaskMapFromInstance(instanceFromAPI)
@@ -104,13 +105,13 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	} else {
 		for _, task := range instanceFromAPI.ImportTasks.BuildHierarchyTasks {
 			hierarchyTask := tempCopy.buildHierarchyTasks[task.CodeListID]
-			hierarchyTask.isComplete = task.State == "completed"
+			hierarchyTask.isComplete = task.State == dataset.StateCompleted.String()
 			tempCopy.buildHierarchyTasks[task.CodeListID] = hierarchyTask
 		}
 
 		for _, task := range instanceFromAPI.ImportTasks.BuildSearchIndexTasks {
 			searchTask := tempCopy.buildSearchTasks[task.DimensionName]
-			searchTask.isComplete = task.State == "completed"
+			searchTask.isComplete = task.State == dataset.StateCompleted.String()
 			tempCopy.buildSearchTasks[task.DimensionName] = searchTask
 		}
 	}
@@ -119,14 +120,14 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	return false, nil
 }
 
-func createHierarchyTaskMapFromInstance(instance api.Instance) map[string]buildHierarchyTask {
+func createHierarchyTaskMapFromInstance(instance dataset.Instance) map[string]buildHierarchyTask {
 
 	buildHierarchyTasks := make(map[string]buildHierarchyTask, 0)
 
 	if instance.ImportTasks != nil {
 		for _, task := range instance.ImportTasks.BuildHierarchyTasks {
 			buildHierarchyTasks[task.CodeListID] = buildHierarchyTask{
-				isComplete:    task.State == "completed",
+				isComplete:    task.State == dataset.StateCompleted.String(),
 				dimensionName: task.DimensionName,
 				codeListID:    task.CodeListID,
 			}
@@ -136,14 +137,14 @@ func createHierarchyTaskMapFromInstance(instance api.Instance) map[string]buildH
 	return buildHierarchyTasks
 }
 
-func createSearchTaskMapFromInstance(instance api.Instance) map[string]buildSearchTask {
+func createSearchTaskMapFromInstance(instance dataset.Instance) map[string]buildSearchTask {
 
 	buildSearchTasks := make(map[string]buildSearchTask, 0)
 
 	if instance.ImportTasks != nil {
 		for _, task := range instance.ImportTasks.BuildSearchIndexTasks {
 			buildSearchTasks[task.DimensionName] = buildSearchTask{
-				isComplete:    task.State == "completed",
+				isComplete:    task.State == dataset.StateCompleted.String(),
 				dimensionName: task.DimensionName,
 			}
 		}
@@ -154,11 +155,11 @@ func createSearchTaskMapFromInstance(instance api.Instance) map[string]buildSear
 
 // getInstanceList gets a list of current import Instances, to seed our in-memory list
 func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context, api *api.DatasetAPI) (bool, error) {
-	instancesFromAPI, isFatal, err := api.GetInstances(ctx, url.Values{"state": []string{"submitted"}})
+	instancesFromAPI, isFatal, err := api.GetInstances(ctx, url.Values{"state": []string{dataset.StateSubmitted.String()}})
 	if err != nil {
 		return isFatal, err
 	}
-	for _, instance := range instancesFromAPI {
+	for _, instance := range instancesFromAPI.Items {
 
 		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
 		searchTasks := createSearchTaskMapFromInstance(instance)
@@ -174,7 +175,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 			trackedInstances[instance.InstanceID] = trackedInstance{
 				totalObservations:         instance.NumberOfObservations,
 				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
-				observationInsertComplete: instance.ImportTasks.ImportObservations.State == "completed",
+				observationInsertComplete: instance.ImportTasks.ImportObservations.State == dataset.StateCompleted.String(),
 				jobID:                     instance.Links.Job.ID,
 				buildHierarchyTasks:       hierarchyTasks,
 				buildSearchTasks:          searchTasks,
@@ -186,8 +187,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 }
 
 // CheckImportJobCompletionState checks all instances for given import job - if all completed, mark import as completed
-func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI, datasetAPI *api.DatasetAPI, jobID, completedInstanceID string) (bool, error) {
-	importJobFromAPI, isFatal, err := importAPI.GetImportJob(ctx, jobID)
+func CheckImportJobCompletionState(ctx context.Context, importAPI *importapi.Client, datasetAPI *api.DatasetAPI, jobID, completedInstanceID, ServiceAuthToken string) (bool, error) {
+	importJobFromAPI, isFatal, err := importAPI.GetImportJob(ctx, jobID, ServiceAuthToken)
 	if err != nil {
 		return isFatal, err
 	}
@@ -196,7 +197,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		return false, errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID")
 	}
 
-	targetState := "completed"
+	targetState := dataset.StateCompleted.String()
 	for _, instanceRef := range importJobFromAPI.Links.Instances {
 		if instanceRef.ID == completedInstanceID {
 			continue
@@ -206,16 +207,16 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		if err != nil {
 			return isFatal, err
 		}
-		if instanceFromAPI.State != "completed" && instanceFromAPI.State != "error" {
+		if instanceFromAPI.State != dataset.StateCompleted.String() && instanceFromAPI.State != dataset.StateError.String() {
 			return false, nil
 		}
-		if instanceFromAPI.State == "error" {
+		if instanceFromAPI.State == dataset.StateError.String() {
 			targetState = instanceFromAPI.State
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
 	log.Event(ctx, "calling import api to update job state", log.INFO, log.Data{"job_id": jobID, "setting_state": targetState})
-	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
+	if err := importAPI.UpdateImportJobState(ctx, jobID, ServiceAuthToken, targetState); err != nil {
 		log.Event(ctx, "CheckImportJobCompletionState update", log.ERROR, log.Error(err), log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return false, nil
@@ -227,27 +228,25 @@ func manageActiveInstanceEvents(
 	createInstanceChan chan events.InputFileAvailable,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
-	importAPI *api.ImportAPI,
+	importAPI *importapi.Client,
 	instanceLoopDoneChan chan bool,
 	store *graph.DB,
-	dataImportCompleteProducer kafka.Producer,
-	checkCompleteInterval time.Duration,
-	initialiseListInterval time.Duration,
-	initialiseListAttempts int,
+	dataImportCompleteProducer *kafka.Producer,
+	cfg *config.Config,
 ) {
 
 	// inform main() when we have stopped processing events
 	defer close(instanceLoopDoneChan)
 
 	trackedInstances := make(trackedInstanceList)
-	for i := 1; i <= initialiseListAttempts; i++ {
+	for i := 1; i <= cfg.InitialiseListAttempts; i++ {
 		if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
-			if i == initialiseListAttempts {
+			if i == cfg.InitialiseListAttempts {
 				log.Event(ctx, "failed to obtain initial instance list", log.ERROR, log.Error(err), log.Data{"attempt": i})
 				return
 			}
 			log.Event(ctx, "could not obtain initial instance list - will retry", log.ERROR, log.Error(err), log.Data{"attempt": i})
-			time.Sleep(initialiseListInterval)
+			time.Sleep(cfg.InitialiseListInterval)
 			continue
 		}
 		break
@@ -255,7 +254,7 @@ func manageActiveInstanceEvents(
 
 	tickerChan := make(chan bool)
 	go func() {
-		for range time.Tick(checkCompleteInterval) {
+		for range time.Tick(cfg.CheckCompleteInterval) {
 			tickerChan <- true
 		}
 	}()
@@ -305,7 +304,7 @@ func manageActiveInstanceEvents(
 								stopTracking = isFatal
 							}
 
-							err = produceDataImportCompleteEvents(trackedInstances[instanceID], instanceID, dataImportCompleteProducer)
+							err = produceDataImportCompleteEvents(ctx, trackedInstances[instanceID], instanceID, dataImportCompleteProducer)
 							if err != nil {
 								log.Event(ctx, "failed to send data import complete events", log.ERROR, log.Error(err), logData)
 								stopTracking = true
@@ -317,11 +316,11 @@ func manageActiveInstanceEvents(
 
 					// assume no error, i.e. that updating works, so we can stopTracking
 					stopTracking = true
-					if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, "completed"); err != nil {
+					if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, dataset.StateCompleted); err != nil {
 						logData["isFatal"] = isFatal
 						log.Event(ctx, "failed to set import instance state=completed", log.ERROR, log.Error(err), logData)
 						stopTracking = isFatal
-					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
+					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID, cfg.ServiceAuthToken); err != nil {
 						logData["isFatal"] = isFatal
 						log.Event(ctx, "failed to check import job when instance completed", log.ERROR, log.Error(err), logData)
 						stopTracking = isFatal
@@ -383,9 +382,10 @@ func manageActiveInstanceEvents(
 }
 
 func produceDataImportCompleteEvents(
+	ctx context.Context,
 	instance trackedInstance,
 	instanceID string,
-	dataImportCompleteProducer kafka.Producer) error {
+	dataImportCompleteProducer *kafka.Producer) error {
 
 	for _, task := range instance.buildHierarchyTasks {
 
@@ -504,11 +504,14 @@ func main() {
 		logFatal(mainContext, "could not obtain database connection", err, nil)
 	}
 
-	client := rchttp.DefaultClient
-	client.MaxRetries = 4
+	// Create importAPI client
+	importAPI := importapi.New(cfg.ImportAPIAddr)
 
-	importAPI := api.NewImportAPI(client, cfg.ImportAPIAddr, cfg.ServiceAuthToken)
-	datasetAPI := api.NewDatasetAPI(client, cfg.DatasetAPIAddr, cfg.ServiceAuthToken)
+	// Create wrapped datasetAPI client
+	datasetAPI := &api.DatasetAPI{
+		Client:           dataset.NewAPIClient(cfg.DatasetAPIAddr),
+		ServiceAuthToken: cfg.ServiceAuthToken,
+	}
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
@@ -523,9 +526,7 @@ func main() {
 		instanceLoopEndedChan,
 		graphDB,
 		dataImportCompleteProducer,
-		cfg.CheckCompleteInterval,
-		cfg.InitialiseListInterval,
-		cfg.InitialiseListAttempts,
+		cfg,
 	)
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
@@ -680,7 +681,7 @@ func main() {
 		}
 		<-mainLoopEndedChan
 		if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Errror(err), log.Data{"topic": cfg.NewInstanceTopic})
+			log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
 		}
 		if err = graphDB.Close(shutdownContext); err != nil {
 			log.Event(mainContext, "bad db close", log.ERROR, log.Error(err), nil)

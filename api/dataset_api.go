@@ -2,44 +2,17 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
-	"strconv"
 
-	"github.com/ONSdigital/go-ns/rchttp"
+	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
 	"github.com/ONSdigital/log.go/log"
 )
 
-// DatasetAPI aggregates a client and url and other common data for accessing the API
+// DatasetAPI extends the dataset api Client with json - bson mapping, specific calls, and error management
 type DatasetAPI struct {
-	client    *rchttp.Client
-	url       string
-	authToken string
-}
-
-// NewDatasetAPI creates an DatasetAPI object
-func NewDatasetAPI(client *rchttp.Client, url, authToken string) *DatasetAPI {
-	return &DatasetAPI{
-		client:    client,
-		url:       url,
-		authToken: authToken,
-	}
-}
-
-// InstanceResults wraps instances objects for pagination
-type InstanceResults struct {
-	Items []Instance `json:"items"`
-}
-
-// Instance comes in results from the Dataset API
-type Instance struct {
-	InstanceID           string               `json:"id"`
-	Links                InstanceLinks        `json:"links,omitempty"`
-	NumberOfObservations int64                `json:"total_observations"`
-	State                string               `json:"state"`
-	ImportTasks          *InstanceImportTasks `json:"import_tasks"`
+	ServiceAuthToken string
+	Client           DatasetClient
 }
 
 // InstanceImportTasks represents all of the tasks required to complete an import job.
@@ -68,129 +41,96 @@ type BuildSearchIndexTask struct {
 	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
 }
 
-// InstanceLinks holds all links for an instance
-type InstanceLinks struct {
-	Job JobLinks `json:"job"`
-}
-
-// JobLinks holds the id and a link to the resource
-type JobLinks struct {
-	ID   string `json:"id"`
-	HRef string `json:"href"`
-}
+// TODO map json models to bson models
 
 // GetInstance asks the Dataset API for the details for instanceID
-func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance Instance, isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID
-	logData := log.Data{"path": path, "instanceID": instanceID}
-	jsonBody, httpCode, err := api.get(ctx, path, nil)
-	logData["jsonBody"] = jsonBody
-	if isFatal, err = errorChecker("GetInstance", err, httpCode, &logData); err != nil {
-		return
-	}
-
-	if err = json.Unmarshal(jsonBody, &instance); err != nil {
-		log.Event(ctx, "GetInstance unmarshall", log.ERROR, log.Error(err), logData)
-		isFatal = true
-	}
+func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance dataset.Instance, isFatal bool, err error) {
+	instance, err = api.Client.GetInstance(ctx, "", api.ServiceAuthToken, "", instanceID)
+	isFatal = errorChecker("GetInstance", err, &log.Data{"instanceID": instanceID})
 	return
 }
 
 // GetInstances asks the Dataset API for all instances filtered by vars
-func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances []Instance, isFatal bool, err error) {
-	path := api.url + "/instances"
-	logData := log.Data{"path": path}
-	jsonBody, httpCode, err := api.get(ctx, path, vars)
-	logData["jsonBody"] = jsonBody
-	if isFatal, err = errorChecker("GetInstances", err, httpCode, &logData); err != nil {
-		return
-	}
-
-	var instanceResults InstanceResults
-	if err = json.Unmarshal(jsonBody, &instanceResults); err != nil {
-		log.Event(ctx, "GetInstances Unmarshal", log.ERROR, log.Error(err), logData)
-		return instances, true, err
-	}
-	return instanceResults.Items, isFatal, nil
+func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances dataset.Instances, isFatal bool, err error) {
+	instances, err = api.Client.GetInstances(ctx, "", api.ServiceAuthToken, "", vars)
+	isFatal = errorChecker("GetInstance", err, &log.Data{})
+	return
 }
 
 // SetImportObservationTaskComplete marks the import observation task state as completed for an instance
 func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/import_tasks"
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"import_observations":{"state":"completed"}}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["jsonBytes"] = jsonBody
-	return errorChecker("SetImportObservationTaskComplete", err, httpCode, &logData)
+	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+		dataset.InstanceImportTasks{
+			ImportObservations: &dataset.ImportObservationsTask{
+				State: dataset.StateCompleted.String(),
+			},
+		},
+	)
+	isFatal = errorChecker("SetImportObservationTaskComplete", err, &log.Data{})
+	return
 }
 
 // UpdateInstanceWithNewInserts increments the observation inserted count for an instance
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/inserted_observations/" + strconv.FormatInt(int64(observationsInserted), 10)
-	logData := log.Data{"url": path}
-	jsonBody, httpCode, err := api.put(ctx, path, nil)
-	logData["jsonBytes"] = jsonBody
-	return errorChecker("UpdateInstanceWithNewInserts", err, httpCode, &logData)
+	err = api.Client.UpdateInstanceWithNewInserts(ctx, api.ServiceAuthToken, instanceID, observationsInserted)
+	isFatal = errorChecker("UpdateInstanceWithNewInserts", err, &log.Data{})
+	return
 }
 
 // UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/import_tasks"
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"build_hierarchies":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["jsonBytes"] = jsonBody
-	return errorChecker("UpdateInstanceWithHierarchyBuilt", err, httpCode, &logData)
+	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+		dataset.InstanceImportTasks{
+			BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
+				&dataset.BuildHierarchyTask{
+					DimensionName: dimensionID,
+					State:         dataset.StateCompleted.String(),
+				},
+			},
+		},
+	)
+	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
+	return
 }
 
 // UpdateInstanceWithSearchIndexBuilt marks a search index build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID + "/import_tasks"
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"build_search_indexes":[{"state":"completed", "dimension_name":"` + dimensionID + `"}]}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonBody, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["jsonBytes"] = jsonBody
-	return errorChecker("UpdateInstanceWithSearchIndexBuilt", err, httpCode, &logData)
-}
-
-// UpdateInstanceState tells the Dataset API that the state has changed of an Dataset instance
-func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState string) (isFatal bool, err error) {
-	path := api.url + "/instances/" + instanceID
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"state":"` + newState + `"}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(ctx, path, jsonUpload)
-	logData["jsonResult"] = jsonResult
-	return errorChecker("UpdateInstanceState", err, httpCode, &logData)
-}
-
-func errorChecker(tag string, err error, httpCode int, logData *log.Data) (isFatal bool, returnedError error) {
-	(*logData)["httpCode"] = httpCode
-	if err == nil && httpCode != http.StatusOK {
-		// this error logged at end of func
-		returnedError = errors.New("Bad http response")
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-	} else if err != nil {
-		// this error logged at end of func
-		returnedError = err
-		isFatal = true
-	}
-	if returnedError != nil {
-		(*logData)["is_fatal"] = isFatal
-		log.Event(context.Background(), tag, log.ERROR, log.Error(returnedError), *logData)
-	}
+	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+		dataset.InstanceImportTasks{
+			BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
+				&dataset.BuildSearchIndexTask{
+					DimensionName: dimensionID,
+					State:         dataset.StateSubmitted.String(),
+				},
+			},
+		},
+	)
+	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
 }
 
-func (api *DatasetAPI) get(ctx context.Context, path string, vars url.Values) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
+// UpdateInstanceState tells the Dataset API that the state has changed of a Dataset instance
+func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState dataset.State) (isFatal bool, err error) {
+	err = api.Client.PutInstanceState(ctx, api.ServiceAuthToken, instanceID, newState)
+	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
+	return
 }
 
-func (api *DatasetAPI) put(ctx context.Context, path string, payload []byte) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
+func errorChecker(tag string, err error, logData *log.Data) (isFatal bool) {
+	if err == nil {
+		return false
+	}
+	switch err.(type) {
+	case *dataset.ErrInvalidDatasetAPIResponse:
+		httpCode := err.(*dataset.ErrInvalidDatasetAPIResponse).Code()
+		(*logData)["httpCode"] = httpCode
+		if httpCode < http.StatusInternalServerError {
+			isFatal = true
+		}
+	default:
+		isFatal = true
+	}
+	(*logData)["is_fatal"] = isFatal
+	log.Event(context.Background(), tag, log.ERROR, log.Error(err), *logData)
+	return
 }

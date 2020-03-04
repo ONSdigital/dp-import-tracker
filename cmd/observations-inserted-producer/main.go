@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-import/events"
-	"github.com/ONSdigital/dp-kafka/kafka"
+	kafka "github.com/ONSdigital/dp-kafka"
 )
 
 var instanceID = flag.String("instance", "5156253b-e21e-4a73-a783-fb53fabc1211", "")
