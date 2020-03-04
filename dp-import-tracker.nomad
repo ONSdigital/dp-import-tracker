@@ -49,6 +49,12 @@ job "dp-import-tracker" {
       service {
         name = "dp-import-tracker"
         tags = ["publishing"]
+        check {
+          type     = "http"
+          path     = "/health"
+          interval = "10s"
+          timeout  = "2s"
+        }
       }
 
       resources {
