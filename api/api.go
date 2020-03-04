@@ -7,6 +7,7 @@ import (
 
 	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
 	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
 )
 
@@ -20,12 +21,14 @@ type DatasetClient interface {
 	PutInstanceImportTasks(ctx context.Context, serviceAuthToken, instanceID string, data dataset.InstanceImportTasks) error
 	UpdateInstanceWithNewInserts(ctx context.Context, serviceAuthToken, instanceID string, observationsInserted int32) error
 	PutInstanceState(ctx context.Context, serviceAuthToken, instanceID string, state dataset.State) error
+	Checker(ctx context.Context, check *healthcheck.CheckState) error
 }
 
 // ImportAPIClient is an interface to represent methods called to action upon Import API REST interface
 type ImportAPIClient interface {
 	GetImportJob(ctx context.Context, importJobID, serviceToken string) (importJob importapi.ImportJob, err error)
 	UpdateImportJobState(ctx context.Context, jobID, serviceToken string, newState string) error
+	Checker(ctx context.Context, check *healthcheck.CheckState) error
 }
 
 // errorChecker determines if an error is fatal. Only errors corresponding to http responses on the range 500+ will be considered non-fatal.

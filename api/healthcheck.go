@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
-	"net/http"
+
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
+	kafka "github.com/ONSdigital/dp-kafka"
 
 	"github.com/ONSdigital/go-ns/server"
 	"github.com/ONSdigital/log.go/log"
@@ -11,10 +13,12 @@ import (
 
 var httpServer *server.Server
 
-// StartHealthCheck sets-up routes, listener
-func StartHealthCheck(bindAddr string, serverDone chan error) {
+// StartHealthCheck sets up the Handler, starts the healthcheck and the http server that serves healthcheck endpoint
+func StartHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck, bindAddr string, serverDone chan error) {
+
 	router := mux.NewRouter()
-	router.Path("/healthcheck").HandlerFunc(healthCheck)
+	router.Path("/health").HandlerFunc(hc.Handler)
+	hc.Start(ctx)
 
 	httpServer = server.New(bindAddr, router)
 	httpServer.HandleOSSignals = false
@@ -29,13 +33,50 @@ func StartHealthCheck(bindAddr string, serverDone chan error) {
 }
 
 // StopHealthCheck shuts down the http listener
-func StopHealthCheck(ctx context.Context) error {
-	return httpServer.Shutdown(ctx)
+func StopHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck) (err error) {
+	err = httpServer.Shutdown(ctx)
+	hc.Stop()
+	return
 }
 
-// healthCheck returns the health of the application
-func healthCheck(w http.ResponseWriter, r *http.Request) {
-	log.Event(context.Background(), "Healthcheck endpoint.", log.INFO)
-	// TODO future story for implementing healthcheck endpoint properly
-	w.WriteHeader(http.StatusOK)
+// RegisterCheckers adds the checkers for the provided clients to the healthcheck object.
+// VaultClient health client will only be registered if encryption is enabled.
+func RegisterCheckers(hc *healthcheck.HealthCheck,
+	newInstanceEventConsumer *kafka.ConsumerGroup,
+	observationsInsertedEventConsumer *kafka.ConsumerGroup,
+	hierarchyBuiltConsumer *kafka.ConsumerGroup,
+	searchBuiltConsumer *kafka.ConsumerGroup,
+	dataImportCompleteProducer *kafka.Producer,
+	importAPI ImportAPIClient,
+	datasetAPI DatasetClient) (err error) {
+
+	if err = hc.AddCheck("Kafka New Instance Event Consumer", newInstanceEventConsumer.Checker); err != nil {
+		log.Event(nil, "Error Adding Check for Kafka New Instance Event Consumer Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("Kafka Observations Inserted Event Consumer", observationsInsertedEventConsumer.Checker); err != nil {
+		log.Event(nil, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("Kafka Hierarchy Built Consumer", hierarchyBuiltConsumer.Checker); err != nil {
+		log.Event(nil, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("Kafka Search Built Consumer", searchBuiltConsumer.Checker); err != nil {
+		log.Event(nil, "Error Adding Search Built Consumer Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("Kafka Data Import Complete Producer", dataImportCompleteProducer.Checker); err != nil {
+		log.Event(nil, "Error Adding Data Import Complete Producer Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("importAPI", importAPI.Checker); err != nil {
+		log.Event(nil, "Error Adding importAPI Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("datasetAPI", datasetAPI.Checker); err != nil {
+		log.Event(nil, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+	}
+
+	return
 }

@@ -25,10 +25,11 @@ type Config struct {
 	ShutdownTimeout                   time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
 	ServiceAuthToken                  string        `envconfig:"SERVICE_AUTH_TOKEN"                   json:"-"`
-	ZebedeeURL                        string        `envconfig:"ZEBEDEE_URL"`
 	CheckCompleteInterval             time.Duration `envconfig:"CHECK_COMPLETE_INTERVAL"`
 	InitialiseListInterval            time.Duration `envconfig:"INITIALISE_LIST_INTERVAL"`
 	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
+	HealthCheckInterval               time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
+	HealthCheckRecoveryInterval       time.Duration `envconfig:"HEALTHCHECK_RECOVERY_INTERVAL"`
 }
 
 // NewConfig creates the config object
@@ -48,11 +49,12 @@ func NewConfig() (*Config, error) {
 		Brokers:                           []string{"localhost:9092"},
 		ImportAPIAddr:                     "http://localhost:21800",
 		DatasetAPIAddr:                    "http://localhost:22000",
-		ZebedeeURL:                        "http://localhost:8082",
 		ShutdownTimeout:                   5 * time.Second,
 		CheckCompleteInterval:             2000 * time.Millisecond,
 		InitialiseListInterval:            4 * time.Second,
 		InitialiseListAttempts:            20,
+		HealthCheckInterval:               10 * time.Second,
+		HealthCheckRecoveryInterval:       1 * time.Minute,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err

@@ -6,12 +6,14 @@ package mock
 import (
 	"context"
 	"github.com/ONSdigital/dp-api-clients-go/dataset"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"net/url"
 	"sync"
 )
 
 var (
+	lockDatasetClientMockChecker                      sync.RWMutex
 	lockDatasetClientMockGetInstance                  sync.RWMutex
 	lockDatasetClientMockGetInstances                 sync.RWMutex
 	lockDatasetClientMockPutInstanceImportTasks       sync.RWMutex
@@ -29,6 +31,9 @@ var _ api.DatasetClient = &DatasetClientMock{}
 //
 //         // make and configure a mocked api.DatasetClient
 //         mockedDatasetClient := &DatasetClientMock{
+//             CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
+// 	               panic("mock out the Checker method")
+//             },
 //             GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string) (dataset.Instance, error) {
 // 	               panic("mock out the GetInstance method")
 //             },
@@ -51,6 +56,9 @@ var _ api.DatasetClient = &DatasetClientMock{}
 //
 //     }
 type DatasetClientMock struct {
+	// CheckerFunc mocks the Checker method.
+	CheckerFunc func(ctx context.Context, check *healthcheck.CheckState) error
+
 	// GetInstanceFunc mocks the GetInstance method.
 	GetInstanceFunc func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string) (dataset.Instance, error)
 
@@ -68,6 +76,13 @@ type DatasetClientMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Checker holds details about calls to the Checker method.
+		Checker []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Check is the check argument value.
+			Check *healthcheck.CheckState
+		}
 		// GetInstance holds details about calls to the GetInstance method.
 		GetInstance []struct {
 			// Ctx is the ctx argument value.
@@ -128,6 +143,41 @@ type DatasetClientMock struct {
 			ObservationsInserted int32
 		}
 	}
+}
+
+// Checker calls CheckerFunc.
+func (mock *DatasetClientMock) Checker(ctx context.Context, check *healthcheck.CheckState) error {
+	if mock.CheckerFunc == nil {
+		panic("DatasetClientMock.CheckerFunc: method is nil but DatasetClient.Checker was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Check *healthcheck.CheckState
+	}{
+		Ctx:   ctx,
+		Check: check,
+	}
+	lockDatasetClientMockChecker.Lock()
+	mock.calls.Checker = append(mock.calls.Checker, callInfo)
+	lockDatasetClientMockChecker.Unlock()
+	return mock.CheckerFunc(ctx, check)
+}
+
+// CheckerCalls gets all the calls that were made to Checker.
+// Check the length with:
+//     len(mockedDatasetClient.CheckerCalls())
+func (mock *DatasetClientMock) CheckerCalls() []struct {
+	Ctx   context.Context
+	Check *healthcheck.CheckState
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Check *healthcheck.CheckState
+	}
+	lockDatasetClientMockChecker.RLock()
+	calls = mock.calls.Checker
+	lockDatasetClientMockChecker.RUnlock()
+	return calls
 }
 
 // GetInstance calls GetInstanceFunc.

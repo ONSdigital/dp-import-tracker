@@ -13,11 +13,21 @@ import (
 	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
 	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
 	"github.com/ONSdigital/dp-graph/graph"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
 	kafka "github.com/ONSdigital/dp-kafka"
 	"github.com/ONSdigital/log.go/log"
+)
+
+var (
+	// BuildTime represents the time in which the service was built
+	BuildTime string
+	// GitCommit represents the commit (SHA-1) hash of the service that is running
+	GitCommit string
+	// Version represents the version of the service that is running
+	Version string
 )
 
 type insertResult int
@@ -432,9 +442,6 @@ func main() {
 	// sensitive fields are omitted from config.String().
 	log.Event(mainContext, "loaded config", log.INFO, log.Data{"config": cfg})
 
-	httpServerDoneChan := make(chan error)
-	api.StartHealthCheck(cfg.BindAddr, httpServerDoneChan)
-
 	// Create InstanceEvent kafka consumer
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		mainContext,
@@ -515,6 +522,27 @@ func main() {
 		Client:           dataset.NewAPIClient(cfg.DatasetAPIAddr),
 		ServiceAuthToken: cfg.ServiceAuthToken,
 	}
+
+	// Create healthcheck object with versionInfo
+	versionInfo, err := healthcheck.NewVersionInfo(BuildTime, GitCommit, Version)
+	if err != nil {
+		logFatal(mainContext, "Failed to create versionInfo for healthcheck", err, log.Data{})
+		os.Exit(1)
+	}
+	hc := healthcheck.New(versionInfo, cfg.HealthCheckRecoveryInterval, cfg.HealthCheckInterval)
+	if err := api.RegisterCheckers(&hc,
+		newInstanceEventConsumer,
+		observationsInsertedEventConsumer,
+		hierarchyBuiltConsumer,
+		searchBuiltConsumer,
+		dataImportCompleteProducer,
+		importAPI.Client,
+		datasetAPI.Client); err != nil {
+		os.Exit(1)
+	}
+
+	httpServerDoneChan := make(chan error)
+	api.StartHealthCheck(mainContext, &hc, cfg.BindAddr, httpServerDoneChan)
 
 	updateInstanceWithObservationsInsertedChan := make(chan insertedObservationsEvent)
 	createInstanceChan := make(chan events.InputFileAvailable)
@@ -720,7 +748,7 @@ func main() {
 	// background httpServer shutdown
 	backgroundAndCount(&waitCount, reduceWaits, func() {
 		var err error
-		if err = api.StopHealthCheck(shutdownContext); err != nil {
+		if err = api.StopHealthCheck(shutdownContext, &hc); err != nil {
 			log.Event(mainContext, "bad healthcheck close", log.ERROR, log.Error(err))
 		}
 		<-httpServerDoneChan

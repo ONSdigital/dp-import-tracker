@@ -6,11 +6,13 @@ package mock
 import (
 	"context"
 	"github.com/ONSdigital/dp-api-clients-go/importapi"
+	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"sync"
 )
 
 var (
+	lockImportAPIClientMockChecker              sync.RWMutex
 	lockImportAPIClientMockGetImportJob         sync.RWMutex
 	lockImportAPIClientMockUpdateImportJobState sync.RWMutex
 )
@@ -25,6 +27,9 @@ var _ api.ImportAPIClient = &ImportAPIClientMock{}
 //
 //         // make and configure a mocked api.ImportAPIClient
 //         mockedImportAPIClient := &ImportAPIClientMock{
+//             CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
+// 	               panic("mock out the Checker method")
+//             },
 //             GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
 // 	               panic("mock out the GetImportJob method")
 //             },
@@ -38,6 +43,9 @@ var _ api.ImportAPIClient = &ImportAPIClientMock{}
 //
 //     }
 type ImportAPIClientMock struct {
+	// CheckerFunc mocks the Checker method.
+	CheckerFunc func(ctx context.Context, check *healthcheck.CheckState) error
+
 	// GetImportJobFunc mocks the GetImportJob method.
 	GetImportJobFunc func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error)
 
@@ -46,6 +54,13 @@ type ImportAPIClientMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Checker holds details about calls to the Checker method.
+		Checker []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Check is the check argument value.
+			Check *healthcheck.CheckState
+		}
 		// GetImportJob holds details about calls to the GetImportJob method.
 		GetImportJob []struct {
 			// Ctx is the ctx argument value.
@@ -67,6 +82,41 @@ type ImportAPIClientMock struct {
 			NewState string
 		}
 	}
+}
+
+// Checker calls CheckerFunc.
+func (mock *ImportAPIClientMock) Checker(ctx context.Context, check *healthcheck.CheckState) error {
+	if mock.CheckerFunc == nil {
+		panic("ImportAPIClientMock.CheckerFunc: method is nil but ImportAPIClient.Checker was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Check *healthcheck.CheckState
+	}{
+		Ctx:   ctx,
+		Check: check,
+	}
+	lockImportAPIClientMockChecker.Lock()
+	mock.calls.Checker = append(mock.calls.Checker, callInfo)
+	lockImportAPIClientMockChecker.Unlock()
+	return mock.CheckerFunc(ctx, check)
+}
+
+// CheckerCalls gets all the calls that were made to Checker.
+// Check the length with:
+//     len(mockedImportAPIClient.CheckerCalls())
+func (mock *ImportAPIClientMock) CheckerCalls() []struct {
+	Ctx   context.Context
+	Check *healthcheck.CheckState
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Check *healthcheck.CheckState
+	}
+	lockImportAPIClientMockChecker.RLock()
+	calls = mock.calls.Checker
+	lockImportAPIClientMockChecker.RUnlock()
+	return calls
 }
 
 // GetImportJob calls GetImportJobFunc.
