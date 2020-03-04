@@ -8,20 +8,16 @@ require (
 	github.com/ONSdigital/dp-healthcheck v1.0.0
 	github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3
 	github.com/ONSdigital/dp-kafka v1.1.1
-	github.com/ONSdigital/dp-vault v1.1.0 // indirect
 	github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58
 	github.com/ONSdigital/log.go v1.0.0
-	github.com/eapache/queue v1.1.1-0.20180227141424-093482f3f8ce // indirect
 	github.com/facebookgo/freeport v0.0.0-20150612182905-d4adf43b75b9 // indirect
 	github.com/go-avro/avro v0.0.0-20171219232920-444163702c11 // indirect
-	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.7.3
 	github.com/justinas/alice v1.2.0 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/klauspost/cpuid v1.2.3 // indirect
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
-	github.com/pierrec/xxHash v0.0.0-20170714082455-a0006b13c722 // indirect
 	github.com/smartystreets/goconvey v1.6.4
 	gopkg.in/avro.v0 v0.0.0-20171217001914-a730b5802183 // indirect
 )
