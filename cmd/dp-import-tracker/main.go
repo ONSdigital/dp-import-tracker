@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ONSdigital/dp-api-clients-go/dataset"
-	"github.com/ONSdigital/dp-api-clients-go/importapi"
+	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
+	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
 	"github.com/ONSdigital/dp-graph/graph"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
@@ -187,8 +187,8 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 }
 
 // CheckImportJobCompletionState checks all instances for given import job - if all completed, mark import as completed
-func CheckImportJobCompletionState(ctx context.Context, importAPI *importapi.Client, datasetAPI *api.DatasetAPI, jobID, completedInstanceID, ServiceAuthToken string) (bool, error) {
-	importJobFromAPI, isFatal, err := importAPI.GetImportJob(ctx, jobID, ServiceAuthToken)
+func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI, datasetAPI *api.DatasetAPI, jobID, completedInstanceID string) (bool, error) {
+	importJobFromAPI, isFatal, err := importAPI.GetImportJob(ctx, jobID)
 	if err != nil {
 		return isFatal, err
 	}
@@ -216,7 +216,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *importapi.Cli
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
 	log.Event(ctx, "calling import api to update job state", log.INFO, log.Data{"job_id": jobID, "setting_state": targetState})
-	if err := importAPI.UpdateImportJobState(ctx, jobID, ServiceAuthToken, targetState); err != nil {
+	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
 		log.Event(ctx, "CheckImportJobCompletionState update", log.ERROR, log.Error(err), log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return false, nil
@@ -228,7 +228,7 @@ func manageActiveInstanceEvents(
 	createInstanceChan chan events.InputFileAvailable,
 	updateInstanceWithObservationsInsertedChan chan insertedObservationsEvent,
 	datasetAPI *api.DatasetAPI,
-	importAPI *importapi.Client,
+	importAPI *api.ImportAPI,
 	instanceLoopDoneChan chan bool,
 	store *graph.DB,
 	dataImportCompleteProducer *kafka.Producer,
@@ -320,7 +320,7 @@ func manageActiveInstanceEvents(
 						logData["isFatal"] = isFatal
 						log.Event(ctx, "failed to set import instance state=completed", log.ERROR, log.Error(err), logData)
 						stopTracking = isFatal
-					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID, cfg.ServiceAuthToken); err != nil {
+					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
 						logData["isFatal"] = isFatal
 						log.Event(ctx, "failed to check import job when instance completed", log.ERROR, log.Error(err), logData)
 						stopTracking = isFatal
@@ -505,7 +505,10 @@ func main() {
 	}
 
 	// Create importAPI client
-	importAPI := importapi.New(cfg.ImportAPIAddr)
+	importAPI := &api.ImportAPI{
+		Client:           importapi.New(cfg.ImportAPIAddr),
+		ServiceAuthToken: cfg.ServiceAuthToken,
+	}
 
 	// Create wrapped datasetAPI client
 	datasetAPI := &api.DatasetAPI{

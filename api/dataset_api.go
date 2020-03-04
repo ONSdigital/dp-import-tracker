@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"net/http"
 	"net/url"
 
 	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
@@ -14,34 +13,6 @@ type DatasetAPI struct {
 	ServiceAuthToken string
 	Client           DatasetClient
 }
-
-// InstanceImportTasks represents all of the tasks required to complete an import job.
-type InstanceImportTasks struct {
-	ImportObservations    *ImportObservationsTask `bson:"import_observations,omitempty"  json:"import_observations"`
-	BuildHierarchyTasks   []*BuildHierarchyTask   `bson:"build_hierarchies,omitempty"    json:"build_hierarchies"`
-	BuildSearchIndexTasks []*BuildSearchIndexTask `bson:"build_search_indexes,omitempty" json:"build_search_indexes"`
-}
-
-// ImportObservationsTask represents the task of importing instance observation data into the database.
-type ImportObservationsTask struct {
-	State                string `bson:"state,omitempty"             json:"state,omitempty"`
-	InsertedObservations int64  `bson:"total_inserted_observations" json:"total_inserted_observations"`
-}
-
-// BuildHierarchyTask represents a task of importing a single hierarchy.
-type BuildHierarchyTask struct {
-	State         string `bson:"state,omitempty"          json:"state,omitempty"`
-	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
-	CodeListID    string `bson:"code_list_id,omitempty"   json:"code_list_id,omitempty"`
-}
-
-// BuildSearchIndexTask represents a task of importing a single search index into search.
-type BuildSearchIndexTask struct {
-	State         string `bson:"state,omitempty"          json:"state,omitempty"`
-	DimensionName string `bson:"dimension_name,omitempty" json:"dimension_name,omitempty"`
-}
-
-// TODO map json models to bson models
 
 // GetInstance asks the Dataset API for the details for instanceID
 func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance dataset.Instance, isFatal bool, err error) {
@@ -113,24 +84,5 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState dataset.State) (isFatal bool, err error) {
 	err = api.Client.PutInstanceState(ctx, api.ServiceAuthToken, instanceID, newState)
 	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
-	return
-}
-
-func errorChecker(tag string, err error, logData *log.Data) (isFatal bool) {
-	if err == nil {
-		return false
-	}
-	switch err.(type) {
-	case *dataset.ErrInvalidDatasetAPIResponse:
-		httpCode := err.(*dataset.ErrInvalidDatasetAPIResponse).Code()
-		(*logData)["httpCode"] = httpCode
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-	default:
-		isFatal = true
-	}
-	(*logData)["is_fatal"] = isFatal
-	log.Event(context.Background(), tag, log.ERROR, log.Error(err), *logData)
 	return
 }

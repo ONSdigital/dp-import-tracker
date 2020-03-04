@@ -1,9 +1,5 @@
-github.com/ONSdigital/dp-api-clients-go v1.6.0 h1:ABB48zQZTadkComtUhtyG6ixxtvN7WGC4+pXRK/14wI=
-github.com/ONSdigital/dp-api-clients-go v1.6.0/go.mod h1:T5JOG+0QAA69zmxKaqCGLP7AA5EVMEsfWiE+WuzVcAw=
-github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200303163949-cc365918be38 h1:iZHzGaeUn8l8r4Ocml3qLCtUGwYBz4ya0yAegczIObQ=
-github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200303163949-cc365918be38/go.mod h1:T5JOG+0QAA69zmxKaqCGLP7AA5EVMEsfWiE+WuzVcAw=
-github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200303165924-4557d1823be7 h1:MQ2QqPqVObjwvFPQmIVQ1EfY6OEzNulnASC5N1aj6dY=
-github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200303165924-4557d1823be7/go.mod h1:T5JOG+0QAA69zmxKaqCGLP7AA5EVMEsfWiE+WuzVcAw=
+github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200304105619-e96c4a4fa265 h1:yFKqrI6X//y6BCgexcplwG7xy9Y4QHZMjUoRVceHvOM=
+github.com/ONSdigital/dp-api-clients-go v1.6.1-0.20200304105619-e96c4a4fa265/go.mod h1:T5JOG+0QAA69zmxKaqCGLP7AA5EVMEsfWiE+WuzVcAw=
 github.com/ONSdigital/dp-code-list-api v0.0.0-20190319102426-6565cb0ef559 h1:AVQMs6BNOltKBEHO4kzCHvWD558KmTBI3YkGnzWoSj4=
 github.com/ONSdigital/dp-code-list-api v0.0.0-20190319102426-6565cb0ef559/go.mod h1:7IPu9DP8bkoj8axKeyblssZeS1zak6iGqGKotwFYTNE=
 github.com/ONSdigital/dp-dimension-importer v0.0.0-20190322121312-221f2ea9e371 h1:eEykKnbmJbkjHDDkKns/b8mdsMwKYeRvHxNe26gCrkU=
