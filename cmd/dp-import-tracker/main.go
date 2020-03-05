@@ -685,10 +685,6 @@ func main() {
 	// also tells any in-flight work (with this context) to stop
 	mainContextCancel()
 
-	// Graceful shutdown performs shutdown operations of dependent servies in sequential steps of parallel go-routines.
-	// TODO suggestion: it would be a good idea to have a generic Graceful shutdown (of lifecycle orchesteration) library for all services,
-	// which defines a DAG (directed acyclic graph) of dependencies, and have a generic shutdown that reads the DAG and calls the functions accordingly.
-
 	// Shutdown step 1: healthcheck with and its HTTP server before starting to shutdown any other service.
 	didTimeout := runInParallelWithTimeout(shutdownContext, []func(){
 		func() {
@@ -722,7 +718,7 @@ func main() {
 		},
 
 		func() {
-			// Shutdown NewInstanceEventConsumer
+			// Shutdown NewInstanceEventConsumer and graphDB
 			var err error
 			if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
 				log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})

@@ -7,7 +7,7 @@ require (
 	github.com/ONSdigital/dp-graph v1.0.2-0.20200304173922-3a73dcad25f5
 	github.com/ONSdigital/dp-healthcheck v1.0.0
 	github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3
-	github.com/ONSdigital/dp-kafka v1.1.2-0.20200305123624-aedaa302c39b
+	github.com/ONSdigital/dp-kafka v1.1.2-0.20200305173355-32381efc5fe9
 	github.com/ONSdigital/go-ns v0.0.0-20191104121206-f144c4ec2e58
 	github.com/ONSdigital/log.go v1.0.0
 	github.com/facebookgo/freeport v0.0.0-20150612182905-d4adf43b75b9 // indirect
