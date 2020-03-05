@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -684,98 +685,128 @@ func main() {
 	// also tells any in-flight work (with this context) to stop
 	mainContextCancel()
 
-	// count background tasks for shutting down services
-	waitCount := 0
-	reduceWaits := make(chan bool)
+	// Graceful shutdown performs shutdown operations of dependent servies in sequential steps of parallel go-routines.
+	// TODO suggestion: it would be a good idea to have a generic Graceful shutdown (of lifecycle orchesteration) library for all services,
+	// which defines a DAG (directed acyclic graph) of dependencies, and have a generic shutdown that reads the DAG and calls the functions accordingly.
 
-	// tell the kafka consumers to stop receiving new messages, wait for mainLoopEndedChan, then consumers.Close
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
-		} else {
-			log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.ObservationsInsertedTopic})
-		}
-		<-mainLoopEndedChan
-		if err = observationsInsertedEventConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
-		}
-	})
-	// repeat above for 2nd consumer
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
-		} else {
-			log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.NewInstanceTopic})
-		}
-		<-mainLoopEndedChan
-		if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
-		}
-		if err = graphDB.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad db close", log.ERROR, log.Error(err), nil)
-		}
-	})
-
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
-		} else {
-			log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.HierarchyBuiltTopic})
-		}
-		<-mainLoopEndedChan
-		if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
-		}
-	})
-
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-			log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
-		} else {
-			log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.SearchBuiltTopic})
-		}
-		<-mainLoopEndedChan
-		if err = searchBuiltConsumer.Close(shutdownContext); err != nil {
-			log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
-		}
-	})
-
-	// background httpServer shutdown
-	backgroundAndCount(&waitCount, reduceWaits, func() {
-		var err error
-		if err = api.StopHealthCheck(shutdownContext, &hc); err != nil {
-			log.Event(mainContext, "bad healthcheck close", log.ERROR, log.Error(err))
-		}
-		<-httpServerDoneChan
-	})
-
-	// loop until context is done (cancelled or timeout) NOTE: waitCount==0 cancels the context
-	for contextRunning := true; contextRunning; {
-		select {
-		case <-shutdownContext.Done():
-			contextRunning = false
-		case <-reduceWaits:
-			waitCount--
-			if waitCount == 0 {
-				shutdownContextCancel()
+	// Shutdown step 1: healthcheck with and its HTTP server before starting to shutdown any other service.
+	didTimeout := runInParallelWithTimeout(shutdownContext, []func(){
+		func() {
+			var err error
+			if err = api.StopHealthCheck(shutdownContext, &hc); err != nil {
+				log.Event(mainContext, "bad healthcheck close", log.ERROR, log.Error(err))
 			}
-		}
+			<-httpServerDoneChan
+		},
+	})
+	if didTimeout {
+		log.Event(mainContext, "Shutdown timed out at step 1 (healthcheck)", log.ERROR, log.Data{"context": shutdownContext.Err()})
+		os.Exit(1)
 	}
 
-	log.Event(mainContext, "Shutdown done", log.INFO, log.Data{"context": shutdownContext.Err(), "waits_left": waitCount})
-	os.Exit(1)
+	// Shutdown step 2 all other dependencies can be shutted down in parallel
+	didTimeout = runInParallelWithTimeout(shutdownContext, []func(){
+
+		func() {
+			// Shutdown ObservationsInsertedEventConsumer
+			var err error
+			if err = observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+				log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
+			} else {
+				log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.ObservationsInsertedTopic})
+			}
+			<-mainLoopEndedChan
+			if err = observationsInsertedEventConsumer.Close(shutdownContext); err != nil {
+				log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
+			}
+		},
+
+		func() {
+			// Shutdown NewInstanceEventConsumer
+			var err error
+			if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+				log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+			} else {
+				log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.NewInstanceTopic})
+			}
+			<-mainLoopEndedChan
+			if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
+				log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+			}
+			if err = graphDB.Close(shutdownContext); err != nil {
+				log.Event(mainContext, "bad db close", log.ERROR, log.Error(err), nil)
+			}
+		},
+
+		func() {
+			// Shutdown hierarchyBuiltConsumer
+			var err error
+			if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+				log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+			} else {
+				log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.HierarchyBuiltTopic})
+			}
+			<-mainLoopEndedChan
+			if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
+				log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+			}
+		},
+
+		func() {
+			// Shutdown SearchBuiltConsumer
+			var err error
+			if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+				log.Event(mainContext, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
+			} else {
+				log.Event(mainContext, "listen stopped", log.INFO, log.Data{"topic": cfg.SearchBuiltTopic})
+			}
+			<-mainLoopEndedChan
+			if err = searchBuiltConsumer.Close(shutdownContext); err != nil {
+				log.Event(mainContext, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
+			}
+		},
+
+		func() {
+
+		},
+	})
+	if didTimeout {
+		log.Event(mainContext, "Shutdown timed out at step 2", log.ERROR, log.Data{"context": shutdownContext.Err()})
+		os.Exit(1)
+	}
+
+	// Graceful shutdown was successful (all functions ended with no timeout)
+	shutdownContextCancel()
+	log.Event(mainContext, "Done shutdown gracefully", log.INFO)
+	os.Exit(0)
 }
 
-// backgroundAndCount runs a function in a goroutine, after adding 1 to the waitCount
-// - when the function completes, the waitCount is reduced (via a channel message)
-func backgroundAndCount(waitCountPtr *int, reduceWaitsChan chan bool, bgFunc func()) {
-	*waitCountPtr++
+// runInParallelWithTimeout runs the provided functions in parallel, waiting for all of them to finish.
+// It returns true only if the context timeout expires before all the functions finish their execution
+func runInParallelWithTimeout(ctx context.Context, functions []func()) bool {
+	wg := &sync.WaitGroup{}
+	for _, parallelFunc := range functions {
+		wg.Add(1)
+		go func(f func()) {
+			defer wg.Done()
+			f()
+		}(parallelFunc)
+	}
+	return waitWithTimeout(ctx, wg)
+}
+
+// waitWithTimeout blocks until all go-routines tracked by a WaitGroup are done, or until the timeout defined in a context expires.
+// It returns true only if the context timeout expired
+func waitWithTimeout(ctx context.Context, wg *sync.WaitGroup) bool {
+	chWaiting := make(chan struct{})
 	go func() {
-		bgFunc()
-		reduceWaitsChan <- true
+		defer close(chWaiting)
+		wg.Wait()
 	}()
+	select {
+	case <-chWaiting:
+		return false
+	case <-ctx.Done():
+		return true
+	}
 }
