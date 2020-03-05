@@ -24,6 +24,6 @@ debug:
 	GRAPH_DRIVER_TYPE="neo4j" GRAPH_ADDR="bolt://localhost:7687" HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/$(MAIN)/main.go
 
 test:
-	go test -cover $(shell go list ./... | grep -v /vendor/)
+	go test -cover -race $(shell go list ./... | grep -v /vendor/)
 
 .PHONEY: test build debug depends

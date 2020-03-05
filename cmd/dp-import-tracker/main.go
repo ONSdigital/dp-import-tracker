@@ -537,7 +537,8 @@ func main() {
 		searchBuiltConsumer,
 		dataImportCompleteProducer,
 		importAPI.Client,
-		datasetAPI.Client); err != nil {
+		datasetAPI.Client,
+		graphDB); err != nil {
 		os.Exit(1)
 	}
 
@@ -560,6 +561,10 @@ func main() {
 		cfg,
 	)
 
+	// Log non-fatal errors from kafka-consumers
+	observationsInsertedEventConsumer.Channels().LogErrors(mainContext, "ObservationInserted Consumer Error")
+	newInstanceEventConsumer.Channels().LogErrors(mainContext, "NewInstance Consumer Error")
+
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
 	mainLoopEndedChan := make(chan error)
@@ -572,15 +577,9 @@ func main() {
 			case <-mainContext.Done():
 				log.Event(mainContext, "main loop aborting", log.INFO, log.Data{"ctx_err": mainContext.Err()})
 				looping = false
-			case err = <-observationsInsertedEventConsumer.Channels().Errors:
-				log.Event(mainContext, "aborting after consumer error", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
-				looping = false
-			case err = <-newInstanceEventConsumer.Channels().Errors:
-				log.Event(mainContext, "aborting after consumer error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
-				looping = false
 			case err = <-httpServerDoneChan:
 				log.Event(mainContext, "unexpected httpServer exit", log.ERROR, log.Error(err), nil)
-				looping = false
+				looping = true
 			case newInstanceMessage := <-newInstanceEventConsumer.Channels().Upstream:
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {

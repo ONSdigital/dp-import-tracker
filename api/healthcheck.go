@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 
+	"github.com/ONSdigital/dp-graph/graph"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	kafka "github.com/ONSdigital/dp-kafka"
 
@@ -48,25 +49,26 @@ func RegisterCheckers(hc *healthcheck.HealthCheck,
 	searchBuiltConsumer *kafka.ConsumerGroup,
 	dataImportCompleteProducer *kafka.Producer,
 	importAPI ImportAPIClient,
-	datasetAPI DatasetClient) (err error) {
+	datasetAPI DatasetClient,
+	graphDB *graph.DB) (err error) {
 
-	if err = hc.AddCheck("Kafka New Instance Event Consumer", newInstanceEventConsumer.Checker); err != nil {
+	if err = hc.AddCheck("Kafka NewInstanceEvent Consumer", newInstanceEventConsumer.Checker); err != nil {
 		log.Event(nil, "Error Adding Check for Kafka New Instance Event Consumer Checker", log.ERROR, log.Error(err))
 	}
 
-	if err = hc.AddCheck("Kafka Observations Inserted Event Consumer", observationsInsertedEventConsumer.Checker); err != nil {
+	if err = hc.AddCheck("Kafka ObservationsInsertedEvent Consumer", observationsInsertedEventConsumer.Checker); err != nil {
 		log.Event(nil, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", log.ERROR, log.Error(err))
 	}
 
-	if err = hc.AddCheck("Kafka Hierarchy Built Consumer", hierarchyBuiltConsumer.Checker); err != nil {
+	if err = hc.AddCheck("Kafka HierarchyBuilt Consumer", hierarchyBuiltConsumer.Checker); err != nil {
 		log.Event(nil, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", log.ERROR, log.Error(err))
 	}
 
-	if err = hc.AddCheck("Kafka Search Built Consumer", searchBuiltConsumer.Checker); err != nil {
+	if err = hc.AddCheck("Kafka SearchBuilt Consumer", searchBuiltConsumer.Checker); err != nil {
 		log.Event(nil, "Error Adding Search Built Consumer Checker", log.ERROR, log.Error(err))
 	}
 
-	if err = hc.AddCheck("Kafka Data Import Complete Producer", dataImportCompleteProducer.Checker); err != nil {
+	if err = hc.AddCheck("Kafka DataImportComplete Producer", dataImportCompleteProducer.Checker); err != nil {
 		log.Event(nil, "Error Adding Data Import Complete Producer Checker", log.ERROR, log.Error(err))
 	}
 
@@ -75,6 +77,10 @@ func RegisterCheckers(hc *healthcheck.HealthCheck,
 	}
 
 	if err = hc.AddCheck("datasetAPI", datasetAPI.Checker); err != nil {
+		log.Event(nil, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+	}
+
+	if err = hc.AddCheck("Neo4J", graphDB.Checker); err != nil {
 		log.Event(nil, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
 	}
 
