@@ -90,7 +90,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 	if err != nil {
 		return isFatal, err
 	}
-	if instanceFromAPI.InstanceID == "" {
+	if instanceFromAPI.ID == "" {
 		log.Event(ctx, "no such instance at API - removing from tracker", log.INFO, log.Data{"InstanceID": instanceID})
 		delete(trackedInstances, instanceID)
 		return false, nil
@@ -176,14 +176,14 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 		searchTasks := createSearchTaskMapFromInstance(instance)
 
 		log.Event(ctx, "adding instance for tracking", log.INFO, log.Data{
-			"instance_id":    instance.InstanceID,
-			"current_state":  instance.State,
-			"hierarchy_taks": hierarchyTasks,
-			"search_tasks":   searchTasks,
+			"instance_id":     instance.ID,
+			"current_state":   instance.State,
+			"hierarchy_tasks": hierarchyTasks,
+			"search_tasks":    searchTasks,
 		})
 
 		if instance.ImportTasks != nil {
-			trackedInstances[instance.InstanceID] = trackedInstance{
+			trackedInstances[instance.ID] = trackedInstance{
 				totalObservations:         instance.NumberOfObservations,
 				observationsInsertedCount: instance.ImportTasks.ImportObservations.InsertedObservations,
 				observationInsertComplete: instance.ImportTasks.ImportObservations.State == dataset.StateCompleted.String(),
