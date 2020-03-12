@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
 	"time"
 
 	"github.com/ONSdigital/dp-import/events"
 	kafka "github.com/ONSdigital/dp-kafka"
+	"github.com/ONSdigital/log.go/log"
 )
 
 var instanceID = flag.String("instance", "ac280d98-7211-4b04-9497-40f199396cc3", "")
@@ -24,7 +26,11 @@ func main() {
 	var brokers []string
 	brokers = append(brokers, *kafkaHost)
 
-	producer, _ := kafka.NewProducer(ctx, brokers, *topic, int(2000000), kafka.CreateProducerChannels())
+	producer, err := kafka.NewProducer(ctx, brokers, *topic, int(2000000), kafka.CreateProducerChannels())
+	if err != nil {
+		log.Event(ctx, "Error creating Kafka Producer", log.FATAL, log.Error(err))
+		os.Exit(1)
+	}
 
 	fileEvent := events.InputFileAvailable{
 		InstanceID: *instanceID,
@@ -32,10 +38,12 @@ func main() {
 		URL:        *url,
 	}
 
-	bytes, error := events.InputFileAvailableSchema.Marshal(fileEvent)
-	if error != nil {
-		panic(error)
+	bytes, err := events.InputFileAvailableSchema.Marshal(fileEvent)
+	if err != nil {
+		log.Event(ctx, "Error marshalling fileEvent", log.FATAL, log.Error(err))
+		os.Exit(1)
 	}
+
 	producer.Channels().Output <- bytes
 
 	time.Sleep(time.Duration(time.Second))

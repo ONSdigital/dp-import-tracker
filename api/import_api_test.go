@@ -99,14 +99,17 @@ func TestGetImportJob(t *testing.T) {
 
 func TestUpdateImportJobState(t *testing.T) {
 
-	Convey("wrapper calls import API's UpdateImportJobState and returns any error as it is", t, func() {
+	Convey("When a request is made to update import job state and the client returns a generic error", t, func() {
 		mock := createUpdateImportJobStateMock(errGeneric)
 		importCli := createImportAPIWithMock(mock)
 		err := importCli.UpdateImportJobState(ctx, jobID, "completed")
-		So(err, ShouldResemble, errGeneric)
-		So(len(mock.UpdateImportJobStateCalls()), ShouldEqual, 1)
-		So(mock.UpdateImportJobStateCalls()[0].JobID, ShouldEqual, jobID)
-		So(mock.UpdateImportJobStateCalls()[0].NewState, ShouldEqual, "completed")
-		So(mock.UpdateImportJobStateCalls()[0].ServiceToken, ShouldEqual, token)
+
+		Convey("Then the response contains the generic error", func() {
+			So(err, ShouldResemble, errGeneric)
+			So(len(mock.UpdateImportJobStateCalls()), ShouldEqual, 1)
+			So(mock.UpdateImportJobStateCalls()[0].JobID, ShouldEqual, jobID)
+			So(mock.UpdateImportJobStateCalls()[0].NewState, ShouldEqual, "completed")
+			So(mock.UpdateImportJobStateCalls()[0].ServiceToken, ShouldEqual, token)
+		})
 	})
 }
