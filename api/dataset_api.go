@@ -17,14 +17,14 @@ type DatasetAPI struct {
 // GetInstance asks the Dataset API for the details for instanceID
 func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance dataset.Instance, isFatal bool, err error) {
 	instance, err = api.Client.GetInstance(ctx, "", api.ServiceAuthToken, "", instanceID)
-	isFatal = errorChecker("GetInstance", err, &log.Data{"instanceID": instanceID})
+	isFatal = errorChecker(ctx, "GetInstance", err, &log.Data{"instanceID": instanceID})
 	return
 }
 
 // GetInstances asks the Dataset API for all instances filtered by vars
 func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances dataset.Instances, isFatal bool, err error) {
 	instances, err = api.Client.GetInstances(ctx, "", api.ServiceAuthToken, "", vars)
-	isFatal = errorChecker("GetInstance", err, &log.Data{})
+	isFatal = errorChecker(ctx, "GetInstance", err, &log.Data{})
 	return
 }
 
@@ -37,14 +37,14 @@ func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, ins
 			},
 		},
 	)
-	isFatal = errorChecker("SetImportObservationTaskComplete", err, &log.Data{})
+	isFatal = errorChecker(ctx, "SetImportObservationTaskComplete", err, &log.Data{})
 	return
 }
 
 // UpdateInstanceWithNewInserts increments the observation inserted count for an instance
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
 	err = api.Client.UpdateInstanceWithNewInserts(ctx, api.ServiceAuthToken, instanceID, observationsInserted)
-	isFatal = errorChecker("UpdateInstanceWithNewInserts", err, &log.Data{})
+	isFatal = errorChecker(ctx, "UpdateInstanceWithNewInserts", err, &log.Data{})
 	return
 }
 
@@ -60,7 +60,7 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 			},
 		},
 	)
-	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
+	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
 }
 
@@ -76,13 +76,13 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 			},
 		},
 	)
-	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
+	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
 }
 
 // UpdateInstanceState tells the Dataset API that the state has changed of a Dataset instance
 func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState dataset.State) (isFatal bool, err error) {
 	err = api.Client.PutInstanceState(ctx, api.ServiceAuthToken, instanceID, newState)
-	isFatal = errorChecker("UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
+	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
 }

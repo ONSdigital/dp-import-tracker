@@ -26,7 +26,7 @@ func StartHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck, bindAddr
 
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Event(context.Background(), "", log.ERROR, log.Error(err))
+			log.Event(ctx, "httpServer error", log.ERROR, log.Error(err))
 			serverDone <- err
 		}
 		close(serverDone)

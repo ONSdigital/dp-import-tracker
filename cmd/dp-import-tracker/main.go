@@ -578,81 +578,89 @@ func main() {
 				log.Event(ctx, "main loop aborting", log.INFO, log.Data{"ctx_err": ctx.Err()})
 				looping = false
 			case err = <-httpServerDoneChan:
-				log.Event(ctx, "unexpected httpServer exit", log.ERROR, log.Error(err), nil)
+				log.Event(ctx, "unexpected httpServer exit", log.ERROR, log.Error(err))
 				looping = true
 			case newInstanceMessage := <-newInstanceEventConsumer.Channels().Upstream:
+				// This context will be obtained from the received kafka message in the future
+				kafkaContext := context.Background()
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
-					log.Event(ctx, "TODO handle unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+					log.Event(kafkaContext, "TODO handle unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
 					createInstanceChan <- newInstanceEvent
 				}
 				newInstanceMessage.Commit()
 			case insertedMessage := <-observationsInsertedEventConsumer.Channels().Upstream:
+				// This context will be obtained from the received kafka message in the future
+				kafkaContext := context.Background()
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
 				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
-					log.Event(ctx, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
 					updateInstanceWithObservationsInsertedChan <- insertedUpdate
 					if insertRes := <-insertedUpdate.DoneChan; insertRes == ErrRetry {
 						// do not commit, update was non-fatal (will retry)
-						log.Event(ctx, "non-commit", log.ERROR, log.Error(errors.New("non-fatal error")), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+						log.Event(kafkaContext, "non-commit", log.ERROR, log.Error(errors.New("non-fatal error")), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 						continue
 					}
 				}
 				insertedMessage.Commit()
 			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Channels().Upstream:
+				// This context will be obtained from the received kafka message in the future
+				kafkaContext := context.Background()
 				var event events.HierarchyBuilt
 				if err = events.HierarchyBuiltSchema.Unmarshal(hierarchyBuiltMessage.GetData(), &event); err != nil {
 
 					// todo: call error reporter
-					log.Event(ctx, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
 
 				} else {
 
 					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Event(ctx, "processing hierarchy built message", log.INFO, logData)
+					log.Event(kafkaContext, "processing hierarchy built message", log.INFO, logData)
 
 					if isFatal, err := datasetAPI.UpdateInstanceWithHierarchyBuilt(
-						ctx,
+						kafkaContext,
 						event.InstanceID,
 						event.DimensionName); err != nil {
 
 						if isFatal {
 							// todo: call error reporter
-							log.Event(ctx, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
+							log.Event(kafkaContext, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
 						}
 					}
-					log.Event(ctx, "updated instance with hierarchy built. committing message", log.INFO, logData)
+					log.Event(kafkaContext, "updated instance with hierarchy built. committing message", log.INFO, logData)
 				}
 
 				hierarchyBuiltMessage.Commit()
 
 			case searchBuiltMessage := <-searchBuiltConsumer.Channels().Upstream:
+				// This context will be obtained from the received kafka message in the future
+				kafkaContext := context.Background()
 				var event events.SearchIndexBuilt
 				if err = events.SearchIndexBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
 
 					// todo: call error reporter
-					log.Event(ctx, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
 
 				} else {
 
 					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Event(ctx, "processing search index built message", log.INFO, logData)
+					log.Event(kafkaContext, "processing search index built message", log.INFO, logData)
 
 					if isFatal, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
-						ctx,
+						kafkaContext,
 						event.InstanceID,
 						event.DimensionName); err != nil {
 
 						if isFatal {
 							// todo: call error reporter
-							log.Event(ctx, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
+							log.Event(kafkaContext, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
 						}
 					}
-					log.Event(ctx, "updated instance with search index built. committing message", log.INFO, logData)
+					log.Event(kafkaContext, "updated instance with search index built. committing message", log.INFO, logData)
 				}
 
 				searchBuiltMessage.Commit()
@@ -678,7 +686,7 @@ func main() {
 
 	// gracefully shutdown the application, closing any open resources
 	log.Event(ctx, "Start shutdown", log.ERROR, log.Error(err), log.Data{"timeout": cfg.ShutdownTimeout})
-	shutdownContext, shutdownContextCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	shutdownContext, shutdownContextCancel := context.WithTimeout(ctx, cfg.ShutdownTimeout)
 
 	// tell main handler to stop
 	// also tells any in-flight work (with this context) to stop

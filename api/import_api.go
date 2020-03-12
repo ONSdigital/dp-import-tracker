@@ -16,7 +16,7 @@ type ImportAPI struct {
 // GetImportJob wraps GetImportJob from importAPI, and determines if the error is fatal.
 func (i *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (importJob importapi.ImportJob, isFatal bool, err error) {
 	importJob, err = i.Client.GetImportJob(ctx, importJobID, i.ServiceAuthToken)
-	isFatal = errorChecker("GetImportJob", err, &log.Data{})
+	isFatal = errorChecker(ctx, "GetImportJob", err, &log.Data{})
 	return
 }
 

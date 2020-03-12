@@ -32,7 +32,7 @@ type ImportAPIClient interface {
 }
 
 // errorChecker determines if an error is fatal. Only errors corresponding to http responses on the range 500+ will be considered non-fatal.
-func errorChecker(tag string, err error, logData *log.Data) (isFatal bool) {
+func errorChecker(ctx context.Context, tag string, err error, logData *log.Data) (isFatal bool) {
 	if err == nil {
 		return false
 	}
@@ -53,6 +53,6 @@ func errorChecker(tag string, err error, logData *log.Data) (isFatal bool) {
 		isFatal = true
 	}
 	(*logData)["is_fatal"] = isFatal
-	log.Event(context.Background(), tag, log.ERROR, log.Error(err), *logData)
+	log.Event(ctx, tag, log.ERROR, log.Error(err), *logData)
 	return
 }
