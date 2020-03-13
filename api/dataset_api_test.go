@@ -320,7 +320,7 @@ func TestUpdateInstanceWithSearchIndexBuilt(t *testing.T) {
 	expectedImportTask := dataset.InstanceImportTasks{
 		BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
 			&dataset.BuildSearchIndexTask{
-				State:         dataset.StateSubmitted.String(),
+				State:         dataset.StateCompleted.String(),
 				DimensionName: dimensionID,
 			},
 		},

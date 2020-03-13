@@ -71,7 +71,7 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 			BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
 				&dataset.BuildSearchIndexTask{
 					DimensionName: dimensionID,
-					State:         dataset.StateSubmitted.String(),
+					State:         dataset.StateCompleted.String(),
 				},
 			},
 		},

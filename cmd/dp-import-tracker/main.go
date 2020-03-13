@@ -589,7 +589,7 @@ func main() {
 				} else {
 					createInstanceChan <- newInstanceEvent
 				}
-				newInstanceMessage.Commit()
+				newInstanceEventConsumer.CommitAndRelease(newInstanceMessage)
 			case insertedMessage := <-observationsInsertedEventConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
 				kafkaContext := context.Background()
@@ -606,7 +606,7 @@ func main() {
 						continue
 					}
 				}
-				insertedMessage.Commit()
+				observationsInsertedEventConsumer.CommitAndRelease(insertedMessage)
 			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
 				kafkaContext := context.Background()
@@ -633,8 +633,7 @@ func main() {
 					}
 					log.Event(kafkaContext, "updated instance with hierarchy built. committing message", log.INFO, logData)
 				}
-
-				hierarchyBuiltMessage.Commit()
+				hierarchyBuiltConsumer.CommitAndRelease(hierarchyBuiltMessage)
 
 			case searchBuiltMessage := <-searchBuiltConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
@@ -662,8 +661,7 @@ func main() {
 					}
 					log.Event(kafkaContext, "updated instance with search index built. committing message", log.INFO, logData)
 				}
-
-				searchBuiltMessage.Commit()
+				searchBuiltConsumer.CommitAndRelease(searchBuiltMessage)
 			}
 
 		}
