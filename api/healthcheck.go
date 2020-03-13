@@ -42,7 +42,7 @@ func StopHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck) (err erro
 
 // RegisterCheckers adds the checkers for the provided clients to the healthcheck object.
 // VaultClient health client will only be registered if encryption is enabled.
-func RegisterCheckers(hc *healthcheck.HealthCheck,
+func RegisterCheckers(ctx context.Context, hc *healthcheck.HealthCheck,
 	newInstanceEventConsumer *kafka.ConsumerGroup,
 	observationsInsertedEventConsumer *kafka.ConsumerGroup,
 	hierarchyBuiltConsumer *kafka.ConsumerGroup,
@@ -53,35 +53,35 @@ func RegisterCheckers(hc *healthcheck.HealthCheck,
 	graphDB *graph.DB) (err error) {
 
 	if err = hc.AddCheck("Kafka NewInstanceEvent Consumer", newInstanceEventConsumer.Checker); err != nil {
-		log.Event(nil, "Error Adding Check for Kafka New Instance Event Consumer Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Check for Kafka New Instance Event Consumer Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("Kafka ObservationsInsertedEvent Consumer", observationsInsertedEventConsumer.Checker); err != nil {
-		log.Event(nil, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("Kafka HierarchyBuilt Consumer", hierarchyBuiltConsumer.Checker); err != nil {
-		log.Event(nil, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("Kafka SearchBuilt Consumer", searchBuiltConsumer.Checker); err != nil {
-		log.Event(nil, "Error Adding Search Built Consumer Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Search Built Consumer Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("Kafka DataImportComplete Producer", dataImportCompleteProducer.Checker); err != nil {
-		log.Event(nil, "Error Adding Data Import Complete Producer Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Data Import Complete Producer Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("importAPI", importAPI.Checker); err != nil {
-		log.Event(nil, "Error Adding importAPI Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding importAPI Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("datasetAPI", datasetAPI.Checker); err != nil {
-		log.Event(nil, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
 	}
 
 	if err = hc.AddCheck("Neo4J", graphDB.Checker); err != nil {
-		log.Event(nil, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
 	}
 
 	return

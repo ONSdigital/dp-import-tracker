@@ -530,7 +530,7 @@ func main() {
 		logFatal(ctx, "Failed to create versionInfo for healthcheck", err, log.Data{})
 	}
 	hc := healthcheck.New(versionInfo, cfg.HealthCheckRecoveryInterval, cfg.HealthCheckInterval)
-	if err := api.RegisterCheckers(&hc,
+	if err := api.RegisterCheckers(ctx, &hc,
 		newInstanceEventConsumer,
 		observationsInsertedEventConsumer,
 		hierarchyBuiltConsumer,
