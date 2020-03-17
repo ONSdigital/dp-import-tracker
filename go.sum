@@ -15,8 +15,8 @@ github.com/ONSdigital/dp-hierarchy-api v0.0.0-20190530123622-0be246287b59 h1:5he
 github.com/ONSdigital/dp-hierarchy-api v0.0.0-20190530123622-0be246287b59/go.mod h1:1oE930hQ6vS/5KFL2aXBlHb1nPF78ZsFkE2eQ4CvrZg=
 github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3 h1:Pu6j9UKFMQDGIVrTRGIpr9p1f6PVDtvlHfWdwf/iY8Y=
 github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3/go.mod h1:U5fHAZhyo54q29u4nELS9vYsmFXmeDmfPqSIhHZyj78=
-github.com/ONSdigital/dp-kafka v1.1.4-0.20200312103148-c4d7cec5b792 h1:KnV86KAj7GSyjivnMovDnPsq1rSuv31HIdZI/f5Ts3o=
-github.com/ONSdigital/dp-kafka v1.1.4-0.20200312103148-c4d7cec5b792/go.mod h1:5wrPA3e92d82nOIhdzTsKW5hecJ14LO5URWGUEvPkQU=
+github.com/ONSdigital/dp-kafka v1.1.4 h1:cLdE2hOT4MufGwQK0GwZyvaFTxsIi1dw5z6+Sa7VlFU=
+github.com/ONSdigital/dp-kafka v1.1.4/go.mod h1:5wrPA3e92d82nOIhdzTsKW5hecJ14LO5URWGUEvPkQU=
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-observation-importer v0.0.0-20190530123707-54356cab6a79 h1:pc396Dg9lbMYa7zQaOse5QCRahW2XWO3LnKiArNzTJQ=
 github.com/ONSdigital/dp-observation-importer v0.0.0-20190530123707-54356cab6a79/go.mod h1:Tqh5Z7U5mTlP/CTVSFU7EvBwjeP+o9ZU87cupxivdy0=
