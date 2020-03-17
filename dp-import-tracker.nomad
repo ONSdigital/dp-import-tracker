@@ -48,6 +48,7 @@ job "dp-import-tracker" {
 
       service {
         name = "dp-import-tracker"
+        port = "http"
         tags = ["publishing"]
         check {
           type     = "http"
