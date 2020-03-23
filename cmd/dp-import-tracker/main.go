@@ -684,7 +684,9 @@ func main() {
 
 	// gracefully shutdown the application, closing any open resources
 	log.Event(ctx, "Start shutdown", log.ERROR, log.Error(err), log.Data{"timeout": cfg.ShutdownTimeout})
-	shutdownContext, shutdownContextCancel := context.WithTimeout(ctx, cfg.ShutdownTimeout)
+
+	// Create context with timeout - Note: we can't reuse the main context, as we will cancel it before shutting down.
+	shutdownContext, shutdownContextCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 
 	// tell main handler to stop
 	// also tells any in-flight work (with this context) to stop
