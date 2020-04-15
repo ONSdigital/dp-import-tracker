@@ -10,8 +10,8 @@ github.com/ONSdigital/dp-graph v1.0.2 h1:EfHQMo53F67/EIs3S/d8AYAYcYpf83IfNiOr33Y
 github.com/ONSdigital/dp-graph v1.0.2/go.mod h1:QxXzx2k8rbE2asyp6uG4bwG5zo04nqQM4UEtlrsdYto=
 github.com/ONSdigital/dp-healthcheck v0.0.0-20200131122546-9db6d3f0494e/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-healthcheck v1.0.0/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
-github.com/ONSdigital/dp-healthcheck v1.0.2 h1:N8SzpYzdixVgJS9NMzTBA2RZ2bi3Am1wE5F8ROEpTYw=
-github.com/ONSdigital/dp-healthcheck v1.0.2/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
+github.com/ONSdigital/dp-healthcheck v1.0.3 h1:wNA34U3uPD5t1SE8P3cbGqNZP4CUjyJFbSugPYgrBG0=
+github.com/ONSdigital/dp-healthcheck v1.0.3/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-hierarchy-api v0.0.0-20190530123622-0be246287b59 h1:5heWNUnwY+m1o02A4nuvo6sjj647LV1oTSo6p2DBDis=
 github.com/ONSdigital/dp-hierarchy-api v0.0.0-20190530123622-0be246287b59/go.mod h1:1oE930hQ6vS/5KFL2aXBlHb1nPF78ZsFkE2eQ4CvrZg=
 github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3 h1:Pu6j9UKFMQDGIVrTRGIpr9p1f6PVDtvlHfWdwf/iY8Y=

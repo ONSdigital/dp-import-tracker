@@ -29,7 +29,7 @@ type Config struct {
 	InitialiseListInterval            time.Duration `envconfig:"INITIALISE_LIST_INTERVAL"`
 	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
 	HealthCheckInterval               time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
-	HealthCheckRecoveryInterval       time.Duration `envconfig:"HEALTHCHECK_RECOVERY_INTERVAL"`
+	HealthCheckCriticalTimeout        time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
 }
 
 // NewConfig creates the config object
@@ -53,8 +53,8 @@ func NewConfig() (*Config, error) {
 		CheckCompleteInterval:             2000 * time.Millisecond,
 		InitialiseListInterval:            4 * time.Second,
 		InitialiseListAttempts:            20,
-		HealthCheckInterval:               10 * time.Second,
-		HealthCheckRecoveryInterval:       1 * time.Minute,
+		HealthCheckInterval:               30 * time.Second,
+		HealthCheckCriticalTimeout:        90 * time.Second,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
