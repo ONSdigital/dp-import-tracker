@@ -41,6 +41,8 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | IMPORT_OBSERVATIONS_INSERTED_CONSUMER_GROUP | dp-import-tracker                     | consumer group name for numbers of inserted observations
 | HIERARCHY_BUILT_TOPIC                       | hierarchy-built                       | topic name for built hierarchies
 | HIERARCHY_BUILT_CONSUMER_GROUP              | dp-import-tracker                     | consumer group name for built hierarchies
+| SEARCH_BUILT_TOPIC                          | search-built                          | topic name for search built
+| SEARCH_BUILT_CONSUMER_GROUP                 | dp-import-tracker                     | consumer group name for search built
 | DATA_IMPORT_COMPLETE_TOPIC                  | data-import-complete                  | topic name for hierarchies ready to be imported
 | KAFKA_ADDR                                  | localhost:9092                        | A list of kafka brokers
 | IMPORT_API_ADDR                             | http://localhost:21800                | The address of Import API
@@ -52,6 +54,8 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | CHECK_COMPLETE_INTERVAL                     | 2000ms                                | how much time between checking for instances
 | INITIALISE_LIST_INTERVAL                    | 4s                                    | on startup, if getting instance list fails, how much time to wait before retries
 | INITIALISE_LIST_ATTEMPTS                    | 20                                    | on startup, how many times to retry for instances, before exiting, see INITIALISE_LIST_INTERVAL
+| HEALTHCHECK_INTERVAL                        | 30s                                   | The period of time between health checks
+| HEALTHCHECK_CRITICAL_TIMEOUT                | 90s                                   | The period of time after which failing checks will result in critical global check
 
 ### Contributing
 
