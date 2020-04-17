@@ -90,9 +90,9 @@ func RegisterCheckers(ctx context.Context, hc *healthcheck.HealthCheck,
 		log.Event(ctx, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
 	}
 
-	if err = hc.AddCheck("Neo4J", graphDB.Checker); err != nil {
+	if err = hc.AddCheck("Graph DB", graphDB.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+		log.Event(ctx, "Error Adding Graph DB Checker", log.ERROR, log.Error(err))
 	}
 
 	if hasErrors {
