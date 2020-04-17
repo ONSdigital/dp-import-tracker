@@ -2,104 +2,25 @@ package api
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"net/http"
-	"net/url"
 
-	"github.com/ONSdigital/go-ns/log"
-	"github.com/ONSdigital/go-ns/rchttp"
+	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
+	"github.com/ONSdigital/log.go/log"
 )
 
-// ImportAPI aggregates a client and url and other common data for accessing the API
+// ImportAPI extends the import api Client with error management and service token
 type ImportAPI struct {
-	client    *rchttp.Client
-	url       string
-	authToken string
+	ServiceAuthToken string
+	Client           ImportAPIClient
 }
 
-// ImportJob comes from the Import API and links an import job to its (other) instances
-type ImportJob struct {
-	JobID string  `json:"id"`
-	Links LinkMap `json:"links,ignoreempty"`
+// GetImportJob wraps GetImportJob from importAPI, and determines if the error is fatal.
+func (i *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (importJob importapi.ImportJob, isFatal bool, err error) {
+	importJob, err = i.Client.GetImportJob(ctx, importJobID, i.ServiceAuthToken)
+	isFatal = errorChecker(ctx, "GetImportJob", err, &log.Data{})
+	return
 }
 
-// LinkMap is an array of instance links associated with am import job
-type LinkMap struct {
-	Instances []InstanceLink `json:"instances"`
-}
-
-// InstanceLink identifies an (instance or import-job) by id and url (from Import API)
-type InstanceLink struct {
-	ID   string `json:"id"`
-	Link string `json:"href"`
-}
-
-// NewImportAPI creates an ImportAPI object
-func NewImportAPI(client *rchttp.Client, url, authToken string) *ImportAPI {
-	return &ImportAPI{
-		client:    client,
-		url:       url,
-		authToken: authToken,
-	}
-}
-
-// GetImportJob asks the Import API for the details for an Import job
-func (api *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (ImportJob, bool, error) {
-	path := api.url + "/jobs/" + importJobID
-	logData := log.Data{"path": path, "importJobID": importJobID}
-	jsonBody, httpCode, err := api.get(ctx, path, 0, nil)
-	if httpCode == http.StatusNotFound {
-		return ImportJob{}, false, nil
-	}
-	logData["httpCode"] = httpCode
-	var isFatal bool
-	if err == nil && httpCode != http.StatusOK {
-		if httpCode < http.StatusInternalServerError {
-			isFatal = true
-		}
-		err = errors.New("Bad response while getting import job")
-	} else {
-		isFatal = true
-	}
-	if err != nil {
-		log.ErrorC("GetImportJob", err, logData)
-		return ImportJob{}, isFatal, err
-	}
-	logData["jsonBody"] = string(jsonBody)
-
-	var importJob ImportJob
-	if err := json.Unmarshal(jsonBody, &importJob); err != nil {
-		log.ErrorC("GetImportJob unmarshall", err, logData)
-		return ImportJob{}, true, err
-	}
-
-	return importJob, false, nil
-}
-
-// UpdateImportJobState tells the Import API that the state has changed of an Import job
-func (api *ImportAPI) UpdateImportJobState(ctx context.Context, jobID string, newState string) error {
-	path := api.url + "/jobs/" + jobID
-	logData := log.Data{"url": path}
-	jsonUpload := []byte(`{"state":"` + newState + `"}`)
-	logData["jsonUpload"] = jsonUpload
-	jsonResult, httpCode, err := api.put(ctx, path, 0, jsonUpload)
-	logData["httpCode"] = httpCode
-	logData["jsonResult"] = jsonResult
-	if err == nil && httpCode != http.StatusOK {
-		err = errors.New("Bad HTTP response")
-	}
-	if err != nil {
-		log.ErrorC("UpdateImportJobState", err, logData)
-		return err
-	}
-	return nil
-}
-
-func (api *ImportAPI) get(ctx context.Context, path string, attempts int, vars url.Values) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "GET", path, api.authToken, vars)
-}
-
-func (api *ImportAPI) put(ctx context.Context, path string, attempts int, payload []byte) ([]byte, int, error) {
-	return callAPI(ctx, api.client, "PUT", path, api.authToken, payload)
+// UpdateImportJobState wraps UpdateImportJobState from importAPI.
+func (i *ImportAPI) UpdateImportJobState(ctx context.Context, jobID, newState string) error {
+	return i.Client.UpdateImportJobState(ctx, jobID, i.ServiceAuthToken, newState)
 }
