@@ -6,11 +6,11 @@ image_resource:
   type: docker-image
   source:
     repository: golang
-    tag: 1.12.5
+    tag: 1.13.8
 
 inputs:
   - name: dp-import-tracker
-    path: go/src/github.com/ONSdigital/dp-import-tracker
+    path: dp-import-tracker
 
 run:
-  path: go/src/github.com/ONSdigital/dp-import-tracker/ci/scripts/unit.sh
+  path: dp-import-tracker/ci/scripts/unit.sh

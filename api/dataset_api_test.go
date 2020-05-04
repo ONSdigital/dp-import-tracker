@@ -1,174 +1,404 @@
-package api
+package api_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"net/url"
 	"testing"
 
-	"fmt"
-	"net/http/httptest"
-
+	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
+	"github.com/ONSdigital/dp-import-tracker/api"
+	"github.com/ONSdigital/dp-import-tracker/api/mock"
 	. "github.com/smartystreets/goconvey/convey"
+)
+
+const (
+	instanceID_0 = "iid0"
+	instanceID_1 = "iid1"
+	dimensionID  = "time"
+	token        = "serviceToken"
 )
 
 var ctx = context.Background()
 
+// instances structs for testing
+var (
+	instance0 = dataset.Instance{dataset.Version{
+		ID:                   instanceID_0,
+		NumberOfObservations: 1122,
+	}}
+	instance1 = dataset.Instance{dataset.Version{
+		ID:                   instanceID_1,
+		NumberOfObservations: 13344,
+	}}
+)
+
+// instances list for testing
+var (
+	instances = dataset.Instances{
+		Items: []dataset.Instance{instance0, instance1},
+	}
+)
+
+// error definitions for testing
+var (
+	errDatasetApiCodeForbidden   = dataset.NewDatasetAPIResponse(&http.Response{StatusCode: http.StatusForbidden}, "someUri")
+	errDatasetApiCodeServerError = dataset.NewDatasetAPIResponse(&http.Response{StatusCode: http.StatusInternalServerError}, "someUri")
+	errGeneric                   = errors.New("someting went wrong in importapi")
+)
+
+func createDatasetAPIWithMock(clientMock *mock.DatasetClientMock) *api.DatasetAPI {
+	return &api.DatasetAPI{
+		ServiceAuthToken: token,
+		Client:           clientMock,
+	}
+}
+
+// create mock with GetInstance implementation
+func createGetInstanceMock(getInstanceReturn dataset.Instance, retErr error) *mock.DatasetClientMock {
+	return &mock.DatasetClientMock{
+		GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string) (dataset.Instance, error) {
+			return getInstanceReturn, retErr
+		},
+	}
+}
+
+// create mock with GetInstances implementation
+func createGetInstancesMock(getInstancesReturn dataset.Instances, retErr error) *mock.DatasetClientMock {
+	return &mock.DatasetClientMock{
+		GetInstancesFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, vars url.Values) (dataset.Instances, error) {
+			return getInstancesReturn, retErr
+		},
+	}
+}
+
+// create mock with UpdateInstanceWithNewInserts implementation
+func createUpdateInstanceWithNewInsertsFunc(retErr error) *mock.DatasetClientMock {
+	return &mock.DatasetClientMock{
+		UpdateInstanceWithNewInsertsFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, observationsInserted int32) error {
+			return retErr
+		},
+	}
+}
+
+// create mock with PutInstanceImportTasks implementation
+func createPutInstanceImportTasksMock(retErr error) *mock.DatasetClientMock {
+	return &mock.DatasetClientMock{
+		PutInstanceImportTasksFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, data dataset.InstanceImportTasks) error {
+			return retErr
+		},
+	}
+}
+
+// create mock with PutInstanceState implementation
+func createPutInstanceStateMock(retErr error) *mock.DatasetClientMock {
+	return &mock.DatasetClientMock{
+		PutInstanceStateFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, state dataset.State) error {
+			return retErr
+		},
+	}
+}
+
 func TestGetInstance(t *testing.T) {
+
 	instanceID := "iid0"
-	Convey("When no import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		instance, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
-		So(err, ShouldNotBeNil)
-		So(instance, ShouldResemble, Instance{})
-		So(isFatal, ShouldBeTrue)
-	})
-
-	Convey("When bad json is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeTrue)
-	})
-
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		_, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
-		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"},
-			MockedHTTPResponse{StatusCode: 200,
-				Body: `{"id":"iid","total_observations":1122,"total_inserted_observations":2233,"links":{"job":{"id":"jid1","href":"http://jid1"}},"state":"created"}`})
-
-		instance, isFatal, err := mockedAPI.GetInstance(ctx, instanceID)
+	Convey("When a valid instance is returned by GetInstance then it is returned by the wrapper with no error", t, func() {
+		mock := createGetInstanceMock(instance0, nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		instance, isFatal, err := datasetCli.GetInstance(ctx, instanceID)
 		So(err, ShouldBeNil)
-		So(instance, ShouldResemble, Instance{
-			State:                "created",
-			InstanceID:           "iid",
-			NumberOfObservations: 1122,
-			Links: InstanceLinks{
-				Job: JobLinks{
-					ID:   "jid1",
-					HRef: "http://jid1",
-				},
-			},
-		})
+		So(instance, ShouldResemble, instance0)
+		So(isFatal, ShouldBeFalse)
+		So(len(mock.GetInstanceCalls()), ShouldEqual, 1)
+		So(mock.GetInstanceCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.GetInstanceCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.GetInstanceCalls()[0].UserAuthToken, ShouldEqual, "")
+		So(mock.GetInstanceCalls()[0].CollectionID, ShouldEqual, "")
+	})
+
+	Convey("When a generic error is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstanceMock(dataset.Instance{}, errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstance(ctx, instanceID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstanceMock(dataset.Instance{}, errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstance(ctx, instanceID)
+		So(err, ShouldResemble, errDatasetApiCodeForbidden)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstanceMock(dataset.Instance{}, errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstance(ctx, instanceID)
+		So(err, ShouldResemble, errDatasetApiCodeServerError)
 		So(isFatal, ShouldBeFalse)
 	})
 }
 
 func TestGetInstances(t *testing.T) {
-	Convey("When no import-instances are returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[]}`})
-		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
+
+	Convey("When a valid list of instances is returned by GetInstances then it is returned by the wrapper with no error", t, func() {
+		mock := createGetInstancesMock(instances, nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		instance, isFatal, err := datasetCli.GetInstances(ctx, url.Values{})
 		So(err, ShouldBeNil)
-		So(instances, ShouldBeEmpty)
+		So(instance, ShouldResemble, instances)
 		So(isFatal, ShouldBeFalse)
+		So(len(mock.GetInstancesCalls()), ShouldEqual, 1)
+		So(mock.GetInstancesCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.GetInstancesCalls()[0].UserAuthToken, ShouldEqual, "")
+		So(mock.GetInstancesCalls()[0].CollectionID, ShouldEqual, "")
 	})
 
-	Convey("When bad json is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: "oops"})
-		_, isFatal, err := mockedAPI.GetInstances(ctx, nil)
+	Convey("When a generic error is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstancesMock(instances, errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstances(ctx, url.Values{})
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 500, Body: `{"items":[]}`})
-		_, isFatal, err := mockedAPI.GetInstances(ctx, nil)
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstancesMock(instances, errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstances(ctx, url.Values{})
+		So(err, ShouldResemble, errDatasetApiCodeForbidden)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {
+		mock := createGetInstancesMock(instances, errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		_, isFatal, err := datasetCli.GetInstances(ctx, url.Values{})
+		So(err, ShouldResemble, errDatasetApiCodeServerError)
+		So(isFatal, ShouldBeFalse)
+	})
+}
+
+func TestSetImportObservationTaskComplete(t *testing.T) {
+
+	expectedImportTask := dataset.InstanceImportTasks{
+		ImportObservations: &dataset.ImportObservationsTask{
+			State: dataset.StateCompleted.String(),
+		},
+	}
+
+	Convey("SetImportObservationTaskComplete calls PutInstanceImportTasksMock with the expected parameters", t, func() {
+		mock := createPutInstanceImportTasksMock(nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.SetImportObservationTaskComplete(ctx, instanceID_0)
+		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
+		So(len(mock.PutInstanceImportTasksCalls()), ShouldEqual, 1)
+		So(mock.PutInstanceImportTasksCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.PutInstanceImportTasksCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.PutInstanceImportTasksCalls()[0].Data, ShouldResemble, expectedImportTask)
+	})
+
+	Convey("When a generic error is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createPutInstanceImportTasksMock(errors.New("Generic error"))
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.SetImportObservationTaskComplete(ctx, instanceID_0)
 		So(err, ShouldNotBeNil)
-		So(isFatal, ShouldBeFalse)
+		So(isFatal, ShouldBeTrue)
 	})
 
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "GET"}, MockedHTTPResponse{StatusCode: 200, Body: `{"items":[{"id":"iid","total_observations":1122}]}`})
-		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
-		So(err, ShouldBeNil)
-		So(instances, ShouldResemble, []Instance{Instance{InstanceID: "iid", NumberOfObservations: 1122}})
-		So(isFatal, ShouldBeFalse)
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.SetImportObservationTaskComplete(ctx, instanceID_0)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
 	})
 
-	Convey("When multiple import-instances are returned", t, func() {
-		mockedAPI := getMockDatasetAPI(
-			http.Request{Method: "GET"},
-			MockedHTTPResponse{StatusCode: 200,
-				Body: `{"items":[{"id":"iid","total_observations":1122},{"id":"iid2","total_observations":2234}]}`})
-
-		instances, isFatal, err := mockedAPI.GetInstances(ctx, nil)
-		So(err, ShouldBeNil)
-		So(instances, ShouldResemble, []Instance{
-			Instance{
-				InstanceID:           "iid",
-				NumberOfObservations: 1122,
-			},
-			Instance{
-				InstanceID:           "iid2",
-				NumberOfObservations: 2234,
-			},
-		})
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.SetImportObservationTaskComplete(ctx, instanceID_0)
+		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
 }
 
 func TestUpdateInstanceWithNewInserts(t *testing.T) {
-	instanceID := "iid0"
-	Convey("When bad request is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+
+	Convey("UpdateInstanceWithNewInserts calls UpdateInstanceWithNewInserts with the expected parameters", t, func() {
+		mock := createUpdateInstanceWithNewInsertsFunc(nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithNewInserts(ctx, instanceID_0, 555)
+		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
+		So(len(mock.UpdateInstanceWithNewInsertsCalls()), ShouldEqual, 1)
+		So(mock.UpdateInstanceWithNewInsertsCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.UpdateInstanceWithNewInsertsCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.UpdateInstanceWithNewInsertsCalls()[0].ObservationsInserted, ShouldEqual, 555)
+	})
+
+	Convey("When a generic error is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createUpdateInstanceWithNewInsertsFunc(errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithNewInserts(ctx, instanceID_0, 555)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createUpdateInstanceWithNewInsertsFunc(errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithNewInserts(ctx, instanceID_0, 555)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by SetImportObservationTaskComplete", t, func() {
+		mock := createUpdateInstanceWithNewInsertsFunc(errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithNewInserts(ctx, instanceID_0, 555)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
+	})
+}
+
+func TestUpdateInstanceWithHierarchyBuilt(t *testing.T) {
+
+	expectedImportTask := dataset.InstanceImportTasks{
+		BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
+			&dataset.BuildHierarchyTask{
+				State:         dataset.StateCompleted.String(),
+				DimensionName: dimensionID,
+			},
+		},
+	}
+
+	Convey("UpdateInstanceWithHierarchyBuilt calls PutInstanceImportTasksMock with the expected parameters", t, func() {
+		mock := createPutInstanceImportTasksMock(nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithHierarchyBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
+		So(len(mock.PutInstanceImportTasksCalls()), ShouldEqual, 1)
+		So(mock.PutInstanceImportTasksCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.PutInstanceImportTasksCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.PutInstanceImportTasksCalls()[0].Data, ShouldResemble, expectedImportTask)
+	})
+
+	Convey("When a generic error is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithHierarchyBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithHierarchyBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithHierarchyBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithHierarchyBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithHierarchyBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithHierarchyBuilt(ctx, instanceID_0, dimensionID)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
 
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceWithNewInserts(ctx, instanceID, 1234)
+}
+
+func TestUpdateInstanceWithSearchIndexBuilt(t *testing.T) {
+
+	expectedImportTask := dataset.InstanceImportTasks{
+		BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
+			&dataset.BuildSearchIndexTask{
+				State:         dataset.StateCompleted.String(),
+				DimensionName: dimensionID,
+			},
+		},
+	}
+
+	Convey("UpdateInstanceWithSearchIndexBuilt calls PutInstanceImportTasksMock with the expected parameters", t, func() {
+		mock := createPutInstanceImportTasksMock(nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithSearchIndexBuilt(ctx, instanceID_0, dimensionID)
 		So(err, ShouldBeNil)
 		So(isFatal, ShouldBeFalse)
+		So(len(mock.PutInstanceImportTasksCalls()), ShouldEqual, 1)
+		So(mock.PutInstanceImportTasksCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.PutInstanceImportTasksCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.PutInstanceImportTasksCalls()[0].Data, ShouldResemble, expectedImportTask)
 	})
+
+	Convey("When a generic error is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithSearchIndexBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithSearchIndexBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithSearchIndexBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithSearchIndexBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceWithSearchIndexBuilt", t, func() {
+		mock := createPutInstanceImportTasksMock(errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceWithSearchIndexBuilt(ctx, instanceID_0, dimensionID)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeFalse)
+	})
+
 }
 
 func TestUpdateInstanceState(t *testing.T) {
-	instanceID := "iid0"
-	Convey("When bad request is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 400, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+
+	Convey("UpdateInstanceState calls PutInstanceImportTasksMock with the expected parameters", t, func() {
+		mock := createPutInstanceStateMock(nil)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceState(ctx, instanceID_0, dataset.StateCreated)
+		So(err, ShouldBeNil)
+		So(isFatal, ShouldBeFalse)
+		So(len(mock.PutInstanceStateCalls()), ShouldEqual, 1)
+		So(mock.PutInstanceStateCalls()[0].InstanceID, ShouldEqual, instanceID_0)
+		So(mock.PutInstanceStateCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.PutInstanceStateCalls()[0].State, ShouldEqual, dataset.StateCreated)
+	})
+
+	Convey("When a generic error is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceState", t, func() {
+		mock := createPutInstanceStateMock(errGeneric)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceState(ctx, instanceID_0, dataset.StateCreated)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeTrue)
 	})
 
-	Convey("When server error is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 500, Body: "dnm"})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
+	Convey("When a non-5xx ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceState", t, func() {
+		mock := createPutInstanceStateMock(errDatasetApiCodeForbidden)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceState(ctx, instanceID_0, dataset.StateCreated)
+		So(err, ShouldNotBeNil)
+		So(isFatal, ShouldBeTrue)
+	})
+
+	Convey("When a 5xx server error ErrInvalidAPIResponse is returned by PutInstanceImportTasksMock then a fatal error is returned by UpdateInstanceState", t, func() {
+		mock := createPutInstanceStateMock(errDatasetApiCodeServerError)
+		datasetCli := createDatasetAPIWithMock(mock)
+		isFatal, err := datasetCli.UpdateInstanceState(ctx, instanceID_0, dataset.StateCreated)
 		So(err, ShouldNotBeNil)
 		So(isFatal, ShouldBeFalse)
 	})
-
-	Convey("When a single import-instance is returned", t, func() {
-		mockedAPI := getMockDatasetAPI(http.Request{Method: "PUT"}, MockedHTTPResponse{StatusCode: 200, Body: ""})
-		isFatal, err := mockedAPI.UpdateInstanceState(ctx, instanceID, "newState")
-		So(err, ShouldBeNil)
-		So(isFatal, ShouldBeFalse)
-	})
-}
-
-func getMockDatasetAPI(expectRequest http.Request, mockedHTTPResponse MockedHTTPResponse) *DatasetAPI {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != expectRequest.Method {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("unexpected HTTP method used"))
-			return
-		}
-		w.WriteHeader(mockedHTTPResponse.StatusCode)
-		fmt.Fprintln(w, mockedHTTPResponse.Body)
-	}))
-	return NewDatasetAPI(client, ts.URL, "123")
 }

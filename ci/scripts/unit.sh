@@ -1,7 +1,7 @@
 #!/bin/bash -eux
 
-export GOPATH=$(pwd)/go
+cwd=$(pwd)
 
-pushd $GOPATH/src/github.com/ONSdigital/dp-import-tracker
+pushd $cwd/dp-import-tracker
   make test
 popd
