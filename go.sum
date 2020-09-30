@@ -8,8 +8,11 @@ github.com/ONSdigital/dp-dimension-importer v0.0.0-20190530123722-f43044c4fddb/g
 github.com/ONSdigital/dp-frontend-models v1.1.0/go.mod h1:TT96P7Mi69N3Tc/jFNdbjiwG4GAaMjP26HLotFQ6BPw=
 github.com/ONSdigital/dp-graph v1.0.2 h1:EfHQMo53F67/EIs3S/d8AYAYcYpf83IfNiOr33YOjbI=
 github.com/ONSdigital/dp-graph v1.0.2/go.mod h1:QxXzx2k8rbE2asyp6uG4bwG5zo04nqQM4UEtlrsdYto=
+github.com/ONSdigital/dp-graph/v2 v2.2.0 h1:duocjKyN3623/A/gvata/6PWjcD4bnMWgBxlwiN46sc=
+github.com/ONSdigital/dp-graph/v2 v2.2.0/go.mod h1:6C59rOY0qBKblczkQrJZZKa8ZLR3yKkyunSCeIUavtU=
 github.com/ONSdigital/dp-healthcheck v0.0.0-20200131122546-9db6d3f0494e/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-healthcheck v1.0.0/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
+github.com/ONSdigital/dp-healthcheck v1.0.2/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-healthcheck v1.0.3 h1:wNA34U3uPD5t1SE8P3cbGqNZP4CUjyJFbSugPYgrBG0=
 github.com/ONSdigital/dp-healthcheck v1.0.3/go.mod h1:zighxZ/0m5u7zo0eAr8XFlA+Dz2ic7A1vna6YXvhCjQ=
 github.com/ONSdigital/dp-hierarchy-api v0.0.0-20190530123622-0be246287b59 h1:5heWNUnwY+m1o02A4nuvo6sjj647LV1oTSo6p2DBDis=
@@ -33,6 +36,8 @@ github.com/ONSdigital/graphson v0.0.0-20190718134034-c13ceacd109d h1:yrCtEGlohmA
 github.com/ONSdigital/graphson v0.0.0-20190718134034-c13ceacd109d/go.mod h1:zQ+8pTnCLGuy4eUek81pWUxZo4/f71ri3VYz97Wby+4=
 github.com/ONSdigital/gremgo-neptune v0.0.0-20190806135047-c3c614e5b650 h1:GmVUMOd+k7Czv87P7vJ1QTpws9THtzmCFX3z/BlKd0I=
 github.com/ONSdigital/gremgo-neptune v0.0.0-20190806135047-c3c614e5b650/go.mod h1:oYyEo2KY54bzMSkdUpP0ouombGyaTN+P4ckKTuo+bog=
+github.com/ONSdigital/gremgo-neptune v1.0.0 h1:l0Pizt2goXK5oCFeqs2sOkosZbF4sva0RpcR150VvNE=
+github.com/ONSdigital/gremgo-neptune v1.0.0/go.mod h1:GZz/N6xjNY+EN0x4FmfBDrM73R+Pr3aI5iCwYbY1oYQ=
 github.com/ONSdigital/log.go v0.0.0-20191127134126-2a610b254f20/go.mod h1:BD7D8FWP1fzwUWsrCopEG72jl9cchCaVNIGSz6YvL+Y=
 github.com/ONSdigital/log.go v1.0.0 h1:hZQTuitFv4nSrpzMhpGvafUC5/8xMVnLI0CWe1rAJNc=
 github.com/ONSdigital/log.go v1.0.0/go.mod h1:UnGu9Q14gNC+kz0DOkdnLYGoqugCvnokHBRBxFRpVoQ=

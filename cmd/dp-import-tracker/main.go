@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
-	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
-	"github.com/ONSdigital/dp-graph/graph"
+	"github.com/ONSdigital/dp-api-clients-go/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/importapi"
+	"github.com/ONSdigital/dp-graph/v2/graph"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
