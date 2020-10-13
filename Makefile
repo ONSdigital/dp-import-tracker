@@ -8,8 +8,8 @@ BIN_DIR?=bin
 export GOOS?=$(shell go env GOOS)
 export GOARCH?=$(shell go env GOARCH)
 
-export GRAPH_DRIVER_TYPE?=neptune
-export GRAPH_ADDR?=ws://localhost:8182/gremlin
+export GRAPH_DRIVER_TYPE?=neo4j
+export GRAPH_ADDR?=bolt://localhost:7687
 
 BUILD_TIME=$(shell date +%s)
 GIT_COMMIT=$(shell git rev-parse HEAD)
