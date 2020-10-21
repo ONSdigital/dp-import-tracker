@@ -511,6 +511,7 @@ func main() {
 	if err != nil {
 		logFatal(ctx, "could not obtain database connection", err, nil)
 	}
+	graphErrorConsumer := graph.NewLoggingErrorConsumer(ctx, graphDB.Errors)
 
 	// Create importAPI client
 	importAPI := &api.ImportAPI{
@@ -738,6 +739,9 @@ func main() {
 			}
 			if err = graphDB.Close(shutdownContext); err != nil {
 				log.Event(ctx, "bad db close", log.ERROR, log.Error(err), nil)
+			}
+			if err = graphErrorConsumer.Close(shutdownContext); err != nil {
+				log.Event(ctx, "bad db error consumer close", log.ERROR, log.Error(err), nil)
 			}
 		},
 
