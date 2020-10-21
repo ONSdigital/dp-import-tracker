@@ -3,17 +3,15 @@ package api
 import (
 	"context"
 	"errors"
-
 	"github.com/ONSdigital/dp-graph/v2/graph"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	kafka "github.com/ONSdigital/dp-kafka"
-
-	"github.com/ONSdigital/go-ns/server"
+	dphttp "github.com/ONSdigital/dp-net/http"
 	"github.com/ONSdigital/log.go/log"
 	"github.com/gorilla/mux"
 )
 
-var httpServer *server.Server
+var httpServer *dphttp.Server
 
 // StartHealthCheck sets up the Handler, starts the healthcheck and the http server that serves healthcheck endpoint
 func StartHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck, bindAddr string, serverDone chan error) {
@@ -22,7 +20,7 @@ func StartHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck, bindAddr
 	router.Path("/health").HandlerFunc(hc.Handler)
 	hc.Start(ctx)
 
-	httpServer = server.New(bindAddr, router)
+	httpServer = dphttp.NewServer(bindAddr, router)
 	httpServer.HandleOSSignals = false
 
 	go func() {
