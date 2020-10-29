@@ -8,6 +8,9 @@ BIN_DIR?=bin
 export GOOS?=$(shell go env GOOS)
 export GOARCH?=$(shell go env GOARCH)
 
+export GRAPH_DRIVER_TYPE?=neo4j
+export GRAPH_ADDR?=bolt://localhost:7687
+
 BUILD_TIME=$(shell date +%s)
 GIT_COMMIT=$(shell git rev-parse HEAD)
 VERSION ?= $(shell git tag --points-at HEAD | grep ^v | head -n 1)
@@ -32,7 +35,7 @@ build:
 
 PHONY: debug
 debug:
-	GRAPH_DRIVER_TYPE="neo4j" GRAPH_ADDR="bolt://localhost:7687" HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/$(MAIN)/main.go
+	HUMAN_LOG=1 go run $(LDFLAGS) -race cmd/$(MAIN)/main.go
 
 PHONY: test
 test:
