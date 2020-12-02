@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ONSdigital/dp-import/events"
-	kafka "github.com/ONSdigital/dp-kafka"
+	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/log.go/log"
 )
 
@@ -22,10 +22,13 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
+	var pConfig *kafka.ProducerConfig
+	var pChannels *kafka.ProducerChannels
+
 	var brokers []string
 	brokers = append(brokers, *kafkaHost)
 
-	producer, err := kafka.NewProducer(ctx, brokers, *topic, int(2000000), kafka.CreateProducerChannels())
+	producer, err := kafka.NewProducer(ctx, brokers, *topic, pChannels, pConfig)
 	if err != nil {
 		log.Event(ctx, "Error creating Kafka Producer", log.FATAL, log.Error(err))
 		os.Exit(1)
