@@ -456,15 +456,13 @@ func main() {
 		KafkaVersion: &cfg.KafkaVersion,
 	}
 
-	cgChannels := kafka.CreateConsumerGroupChannels(bufferSize)
-
 	// Create InstanceEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
 		cfg.Brokers,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
-		cgChannels,
+		kafka.CreateConsumerGroupChannels(bufferSize),
 		cgConfig,
 	)
 
@@ -478,7 +476,7 @@ func main() {
 		cfg.Brokers,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
-		cgChannels,
+		kafka.CreateConsumerGroupChannels(bufferSize),
 		cgConfig,
 	)
 
@@ -492,7 +490,7 @@ func main() {
 		cfg.Brokers,
 		cfg.HierarchyBuiltTopic,
 		cfg.HierarchyBuiltConsumerGroup,
-		cgChannels,
+		kafka.CreateConsumerGroupChannels(bufferSize),
 		cgConfig,
 	)
 
@@ -506,7 +504,7 @@ func main() {
 		cfg.Brokers,
 		cfg.SearchBuiltTopic,
 		cfg.SearchBuiltConsumerGroup,
-		cgChannels,
+		kafka.CreateConsumerGroupChannels(bufferSize),
 		cgConfig,
 	)
 
