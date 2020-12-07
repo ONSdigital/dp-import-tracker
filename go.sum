@@ -23,6 +23,8 @@ github.com/ONSdigital/dp-kafka v1.1.7 h1:/XjDYHZDxA0r4JR5Ua/99z8ocVN6OUU/VyPTeWh
 github.com/ONSdigital/dp-kafka v1.1.7/go.mod h1:iEoaot8ojwSUjxA7FPZx3rT/pQJzh5kA9DV4N+1ibDU=
 github.com/ONSdigital/dp-kafka/v2 v2.0.3 h1:2y9IJqwd0j/j/g0Jc6VcPrOTh27YwqZE6DlixtL6cYc=
 github.com/ONSdigital/dp-kafka/v2 v2.0.3/go.mod h1:iyDeWxp1QyJJBQ4cOCWuwrwU9iGS9qYbfV7avbcaenI=
+github.com/ONSdigital/dp-kafka/v2 v2.1.1 h1:20QAt/crKaouJmTpLf8ESY5zlJ041IcbFnOygqjEJgM=
+github.com/ONSdigital/dp-kafka/v2 v2.1.1/go.mod h1:iyDeWxp1QyJJBQ4cOCWuwrwU9iGS9qYbfV7avbcaenI=
 github.com/ONSdigital/dp-mocking v0.0.0-20190905163309-fee2702ad1b9/go.mod h1:BcIRgitUju//qgNePRBmNjATarTtynAgc0yV29VpLEk=
 github.com/ONSdigital/dp-net v1.0.5-0.20200805082802-e518bc287596/go.mod h1:wDVhk2pYosQ1q6PXxuFIRYhYk2XX5+1CeRRnXpSczPY=
 github.com/ONSdigital/dp-net v1.0.5-0.20200805145012-9227a11caddb/go.mod h1:MrSZwDUvp8u1VJEqa+36Gwq4E7/DdceW+BDCvGes6Cs=
