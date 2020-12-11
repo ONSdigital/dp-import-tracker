@@ -30,6 +30,8 @@ type Config struct {
 	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
 	HealthCheckInterval               time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
 	HealthCheckCriticalTimeout        time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
+	KafkaVersion                      string        `envconfig:"KAFKA_VERSION"`
+	KafkaOffsetOldest                 bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
 }
 
 // NewConfig creates the config object
@@ -55,6 +57,8 @@ func NewConfig() (*Config, error) {
 		InitialiseListAttempts:            20,
 		HealthCheckInterval:               30 * time.Second,
 		HealthCheckCriticalTimeout:        90 * time.Second,
+		KafkaVersion:                      "1.0.2",
+		KafkaOffsetOldest:                 true,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err

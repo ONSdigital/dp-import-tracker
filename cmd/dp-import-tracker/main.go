@@ -18,7 +18,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
-	kafka "github.com/ONSdigital/dp-kafka"
+	kafka "github.com/ONSdigital/dp-kafka/v2"
 	"github.com/ONSdigital/log.go/log"
 )
 
@@ -30,6 +30,8 @@ var (
 	// Version represents the version of the service that is running
 	Version string
 )
+
+var bufferSize = 1
 
 type insertResult int
 
@@ -443,15 +445,27 @@ func main() {
 	// sensitive fields are omitted from config.String().
 	log.Event(ctx, "loaded config", log.INFO, log.Data{"config": cfg})
 
+	kafkaOffset := kafka.OffsetNewest
+
+	if cfg.KafkaOffsetOldest {
+		kafkaOffset = kafka.OffsetOldest
+	}
+
+	cgConfig := &kafka.ConsumerGroupConfig{
+		Offset:       &kafkaOffset,
+		KafkaVersion: &cfg.KafkaVersion,
+	}
+
 	// Create InstanceEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
 		cfg.Brokers,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
-		kafka.OffsetNewest,
-		true,
-		kafka.CreateConsumerGroupChannels(true))
+		kafka.CreateConsumerGroupChannels(bufferSize),
+		cgConfig,
+	)
+
 	if err != nil {
 		logFatal(ctx, "could not obtain consumer", err, log.Data{"topic": cfg.NewInstanceTopic})
 	}
@@ -462,9 +476,10 @@ func main() {
 		cfg.Brokers,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
-		kafka.OffsetNewest,
-		true,
-		kafka.CreateConsumerGroupChannels(true))
+		kafka.CreateConsumerGroupChannels(bufferSize),
+		cgConfig,
+	)
+
 	if err != nil {
 		logFatal(ctx, "could not obtain consumer", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 	}
@@ -475,9 +490,10 @@ func main() {
 		cfg.Brokers,
 		cfg.HierarchyBuiltTopic,
 		cfg.HierarchyBuiltConsumerGroup,
-		kafka.OffsetNewest,
-		true,
-		kafka.CreateConsumerGroupChannels(true))
+		kafka.CreateConsumerGroupChannels(bufferSize),
+		cgConfig,
+	)
+
 	if err != nil {
 		logFatal(ctx, "could not obtain consumer", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 	}
@@ -488,20 +504,28 @@ func main() {
 		cfg.Brokers,
 		cfg.SearchBuiltTopic,
 		cfg.SearchBuiltConsumerGroup,
-		kafka.OffsetNewest,
-		true,
-		kafka.CreateConsumerGroupChannels(true))
+		kafka.CreateConsumerGroupChannels(bufferSize),
+		cgConfig,
+	)
+
 	if err != nil {
 		logFatal(ctx, "could not obtain consumer", err, log.Data{"topic": cfg.SearchBuiltTopic})
 	}
 
 	// Create DataImportComplete kafka producer - exit on channel validation error. Non-initialised producers will not error at creation time.
+
+	pChannels := kafka.CreateProducerChannels()
+	pConfig := &kafka.ProducerConfig{
+		KafkaVersion: &cfg.KafkaVersion,
+	}
+
 	dataImportCompleteProducer, err := kafka.NewProducer(
 		ctx,
 		cfg.Brokers,
 		cfg.DataImportCompleteTopic,
-		0,
-		kafka.CreateProducerChannels())
+		pChannels,
+		pConfig,
+	)
 	if err != nil {
 		logFatal(ctx, "observation import complete kafka producer error", err, nil)
 	}
@@ -590,7 +614,7 @@ func main() {
 				} else {
 					createInstanceChan <- newInstanceEvent
 				}
-				newInstanceEventConsumer.CommitAndRelease(newInstanceMessage)
+				newInstanceMessage.CommitAndRelease()
 			case insertedMessage := <-observationsInsertedEventConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
 				kafkaContext := context.Background()
@@ -607,7 +631,7 @@ func main() {
 						continue
 					}
 				}
-				observationsInsertedEventConsumer.CommitAndRelease(insertedMessage)
+				insertedMessage.CommitAndRelease()
 			case hierarchyBuiltMessage := <-hierarchyBuiltConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
 				kafkaContext := context.Background()
@@ -634,7 +658,7 @@ func main() {
 					}
 					log.Event(kafkaContext, "updated instance with hierarchy built. committing message", log.INFO, logData)
 				}
-				hierarchyBuiltConsumer.CommitAndRelease(hierarchyBuiltMessage)
+				hierarchyBuiltMessage.CommitAndRelease()
 
 			case searchBuiltMessage := <-searchBuiltConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
@@ -662,7 +686,7 @@ func main() {
 					}
 					log.Event(kafkaContext, "updated instance with search index built. committing message", log.INFO, logData)
 				}
-				searchBuiltConsumer.CommitAndRelease(searchBuiltMessage)
+				searchBuiltMessage.CommitAndRelease()
 			}
 
 		}
