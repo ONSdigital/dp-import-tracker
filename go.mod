@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-import-tracker
 
-go 1.13
+go 1.15
 
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.30.0
@@ -13,6 +13,7 @@ require (
 	github.com/ONSdigital/go-ns v0.0.0-20200205115900-a11716f93bad // indirect
 	github.com/ONSdigital/log.go v1.0.1
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/smartystreets/goconvey v1.6.4
 	gopkg.in/avro.v0 v0.0.0-20171217001914-a730b5802183 // indirect
