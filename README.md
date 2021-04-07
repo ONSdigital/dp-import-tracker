@@ -41,7 +41,7 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | IMPORT_OBSERVATIONS_INSERTED_CONSUMER_GROUP | dp-import-tracker                     | consumer group name for numbers of inserted observations
 | HIERARCHY_BUILT_TOPIC                       | hierarchy-built                       | topic name for built hierarchies
 | HIERARCHY_BUILT_CONSUMER_GROUP              | dp-import-tracker                     | consumer group name for built hierarchies
-| SEARCH_BUILT_TOPIC                          | search-built                          | topic name for search built
+| SEARCH_BUILT_TOPIC                          | dimension-search-built                | topic name for search built
 | SEARCH_BUILT_CONSUMER_GROUP                 | dp-import-tracker                     | consumer group name for search built
 | DATA_IMPORT_COMPLETE_TOPIC                  | data-import-complete                  | topic name for hierarchies ready to be imported
 | KAFKA_ADDR                                  | localhost:9092                        | A list of kafka brokers
@@ -63,6 +63,6 @@ See [CONTRIBUTING](CONTRIBUTING.md) for details.
 
 ### License
 
-Copyright © 2016-2017, Office for National Statistics (https://www.ons.gov.uk)
+Copyright © 2016-2021, Office for National Statistics (https://www.ons.gov.uk)
 
 Released under MIT license, see [LICENSE](LICENSE.md) for details.

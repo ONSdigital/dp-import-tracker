@@ -45,7 +45,7 @@ func NewConfig() (*Config, error) {
 		ObservationsInsertedConsumerGroup: "dp-import-tracker",
 		HierarchyBuiltTopic:               "hierarchy-built",
 		HierarchyBuiltConsumerGroup:       "dp-import-tracker",
-		SearchBuiltTopic:                  "search-built",
+		SearchBuiltTopic:                  "dimension-search-built",
 		SearchBuiltConsumerGroup:          "dp-import-tracker",
 		DataImportCompleteTopic:           "data-import-complete",
 		Brokers:                           []string{"localhost:9092"},
