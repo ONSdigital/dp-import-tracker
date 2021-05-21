@@ -8,7 +8,7 @@ require (
 	github.com/ONSdigital/dp-healthcheck v1.0.5
 	github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3
 	github.com/ONSdigital/dp-kafka/v2 v2.1.2
-	github.com/ONSdigital/dp-net v1.0.9
+	github.com/ONSdigital/dp-net v1.0.12
 	github.com/ONSdigital/go-ns v0.0.0-20200205115900-a11716f93bad // indirect
 	github.com/ONSdigital/log.go v1.0.1
 	github.com/gorilla/mux v1.8.0
@@ -18,3 +18,5 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	gopkg.in/avro.v0 v0.0.0-20171217001914-a730b5802183 // indirect
 )
+
+replace github.com/ONSdigital/dp-api-clients-go => /Users/andreurbani/Development/ons/dp-api-clients-go
