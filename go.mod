@@ -3,7 +3,7 @@ module github.com/ONSdigital/dp-import-tracker
 go 1.16
 
 require (
-	github.com/ONSdigital/dp-api-clients-go v1.30.0
+	github.com/ONSdigital/dp-api-clients-go v1.36.0
 	github.com/ONSdigital/dp-graph/v2 v2.2.2
 	github.com/ONSdigital/dp-healthcheck v1.0.5
 	github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3
@@ -18,5 +18,3 @@ require (
 	github.com/smartystreets/goconvey v1.6.4
 	gopkg.in/avro.v0 v0.0.0-20171217001914-a730b5802183 // indirect
 )
-
-replace github.com/ONSdigital/dp-api-clients-go => /Users/andreurbani/Development/ons/dp-api-clients-go
