@@ -547,6 +547,8 @@ func main() {
 	datasetAPI := &api.DatasetAPI{
 		Client:           dataset.NewAPIClient(cfg.DatasetAPIAddr),
 		ServiceAuthToken: cfg.ServiceAuthToken,
+		MaxWorkers:       cfg.DatasetAPIMaxWorkers,
+		BatchSize:        cfg.DatasetAPIBatchSize,
 	}
 
 	// Create healthcheck object with versionInfo

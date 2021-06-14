@@ -22,6 +22,8 @@ type Config struct {
 	Brokers                           []string      `envconfig:"KAFKA_ADDR"`
 	ImportAPIAddr                     string        `envconfig:"IMPORT_API_ADDR"`
 	DatasetAPIAddr                    string        `envconfig:"DATASET_API_ADDR"`
+	DatasetAPIMaxWorkers              int           `envconfig:"DATASET_API_MAX_WORKERS"` // maximum number of concurrent go-routines requesting items to datast api at the same time
+	DatasetAPIBatchSize               int           `envconfig:"DATASET_API_BATCH_SIZE"`  // maximum size of a response by dataset api when requesting items in batches
 	ShutdownTimeout                   time.Duration `envconfig:"GRACEFUL_SHUTDOWN_TIMEOUT"`
 	BindAddr                          string        `envconfig:"BIND_ADDR"`
 	ServiceAuthToken                  string        `envconfig:"SERVICE_AUTH_TOKEN"                   json:"-"`
@@ -51,6 +53,8 @@ func NewConfig() (*Config, error) {
 		Brokers:                           []string{"localhost:9092"},
 		ImportAPIAddr:                     "http://localhost:21800",
 		DatasetAPIAddr:                    "http://localhost:22000",
+		DatasetAPIMaxWorkers:              100,
+		DatasetAPIBatchSize:               1000,
 		ShutdownTimeout:                   5 * time.Second,
 		CheckCompleteInterval:             2000 * time.Millisecond,
 		InitialiseListInterval:            4 * time.Second,
