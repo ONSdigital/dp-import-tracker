@@ -3,15 +3,13 @@ module github.com/ONSdigital/dp-import-tracker
 go 1.16
 
 require (
-	github.com/ONSdigital/dp-api-clients-go v1.30.0
+	github.com/ONSdigital/dp-api-clients-go v1.37.0
 	github.com/ONSdigital/dp-graph/v2 v2.2.2
 	github.com/ONSdigital/dp-healthcheck v1.0.5
-	github.com/ONSdigital/dp-hierarchy-api v1.5.0
 	github.com/ONSdigital/dp-import v0.0.0-20180202121531-d3cc28e452c3
-	github.com/ONSdigital/dp-kafka/v2 v2.1.1
-	github.com/ONSdigital/dp-net v1.0.9
+	github.com/ONSdigital/dp-kafka/v2 v2.1.2
+	github.com/ONSdigital/dp-net v1.0.12
 	github.com/ONSdigital/go-ns v0.0.0-20200205115900-a11716f93bad // indirect
-	github.com/ONSdigital/gremgo-neptune v1.0.0 // indirect
 	github.com/ONSdigital/log.go v1.0.1
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2 // indirect

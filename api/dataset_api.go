@@ -12,6 +12,8 @@ import (
 type DatasetAPI struct {
 	ServiceAuthToken string
 	Client           DatasetClient
+	MaxWorkers       int
+	BatchSize        int
 }
 
 // GetInstance asks the Dataset API for the details for instanceID
@@ -23,7 +25,7 @@ func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (inst
 
 // GetInstances asks the Dataset API for all instances filtered by vars
 func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (instances dataset.Instances, isFatal bool, err error) {
-	instances, err = api.Client.GetInstances(ctx, "", api.ServiceAuthToken, "", vars)
+	instances, err = api.Client.GetInstancesInBatches(ctx, "", api.ServiceAuthToken, "", vars, api.BatchSize, api.MaxWorkers)
 	isFatal = errorChecker(ctx, "GetInstance", err, &log.Data{})
 	return
 }

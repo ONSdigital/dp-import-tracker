@@ -52,6 +52,8 @@ func createDatasetAPIWithMock(clientMock *mock.DatasetClientMock) *api.DatasetAP
 	return &api.DatasetAPI{
 		ServiceAuthToken: token,
 		Client:           clientMock,
+		BatchSize:        10,
+		MaxWorkers:       20,
 	}
 }
 
@@ -67,7 +69,7 @@ func createGetInstanceMock(getInstanceReturn dataset.Instance, retErr error) *mo
 // create mock with GetInstances implementation
 func createGetInstancesMock(getInstancesReturn dataset.Instances, retErr error) *mock.DatasetClientMock {
 	return &mock.DatasetClientMock{
-		GetInstancesFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, vars url.Values) (dataset.Instances, error) {
+		GetInstancesInBatchesFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, vars url.Values, batchSize, maxWorkers int) (dataset.Instances, error) {
 			return getInstancesReturn, retErr
 		},
 	}
@@ -147,14 +149,18 @@ func TestGetInstances(t *testing.T) {
 	Convey("When a valid list of instances is returned by GetInstances then it is returned by the wrapper with no error", t, func() {
 		mock := createGetInstancesMock(instances, nil)
 		datasetCli := createDatasetAPIWithMock(mock)
-		instance, isFatal, err := datasetCli.GetInstances(ctx, url.Values{})
+		instance, isFatal, err := datasetCli.GetInstances(ctx, url.Values{"key1": []string{"value1"}})
 		So(err, ShouldBeNil)
 		So(instance, ShouldResemble, instances)
 		So(isFatal, ShouldBeFalse)
-		So(len(mock.GetInstancesCalls()), ShouldEqual, 1)
-		So(mock.GetInstancesCalls()[0].ServiceAuthToken, ShouldEqual, token)
-		So(mock.GetInstancesCalls()[0].UserAuthToken, ShouldEqual, "")
-		So(mock.GetInstancesCalls()[0].CollectionID, ShouldEqual, "")
+		So(len(mock.GetInstancesInBatchesCalls()), ShouldEqual, 1)
+		So(mock.GetInstancesInBatchesCalls()[0].ServiceAuthToken, ShouldEqual, token)
+		So(mock.GetInstancesInBatchesCalls()[0].UserAuthToken, ShouldEqual, "")
+		So(mock.GetInstancesInBatchesCalls()[0].CollectionID, ShouldEqual, "")
+		So(mock.GetInstancesInBatchesCalls()[0].BatchSize, ShouldEqual, 10)
+		So(mock.GetInstancesInBatchesCalls()[0].MaxWorkers, ShouldEqual, 20)
+		So(mock.GetInstancesInBatchesCalls()[0].Vars, ShouldResemble, url.Values{"key1": []string{"value1"}})
+
 	})
 
 	Convey("When a generic error is returned by GetInstance then a fatal error is returned by the wrapper", t, func() {

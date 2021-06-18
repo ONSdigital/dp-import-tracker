@@ -11,12 +11,6 @@ import (
 	"sync"
 )
 
-var (
-	lockImportAPIClientMockChecker              sync.RWMutex
-	lockImportAPIClientMockGetImportJob         sync.RWMutex
-	lockImportAPIClientMockUpdateImportJobState sync.RWMutex
-)
-
 // Ensure, that ImportAPIClientMock does implement api.ImportAPIClient.
 // If this is not the case, regenerate this file with moq.
 var _ api.ImportAPIClient = &ImportAPIClientMock{}
@@ -82,6 +76,9 @@ type ImportAPIClientMock struct {
 			NewState string
 		}
 	}
+	lockChecker              sync.RWMutex
+	lockGetImportJob         sync.RWMutex
+	lockUpdateImportJobState sync.RWMutex
 }
 
 // Checker calls CheckerFunc.
@@ -96,9 +93,9 @@ func (mock *ImportAPIClientMock) Checker(ctx context.Context, check *healthcheck
 		Ctx:   ctx,
 		Check: check,
 	}
-	lockImportAPIClientMockChecker.Lock()
+	mock.lockChecker.Lock()
 	mock.calls.Checker = append(mock.calls.Checker, callInfo)
-	lockImportAPIClientMockChecker.Unlock()
+	mock.lockChecker.Unlock()
 	return mock.CheckerFunc(ctx, check)
 }
 
@@ -113,9 +110,9 @@ func (mock *ImportAPIClientMock) CheckerCalls() []struct {
 		Ctx   context.Context
 		Check *healthcheck.CheckState
 	}
-	lockImportAPIClientMockChecker.RLock()
+	mock.lockChecker.RLock()
 	calls = mock.calls.Checker
-	lockImportAPIClientMockChecker.RUnlock()
+	mock.lockChecker.RUnlock()
 	return calls
 }
 
@@ -133,9 +130,9 @@ func (mock *ImportAPIClientMock) GetImportJob(ctx context.Context, importJobID s
 		ImportJobID:  importJobID,
 		ServiceToken: serviceToken,
 	}
-	lockImportAPIClientMockGetImportJob.Lock()
+	mock.lockGetImportJob.Lock()
 	mock.calls.GetImportJob = append(mock.calls.GetImportJob, callInfo)
-	lockImportAPIClientMockGetImportJob.Unlock()
+	mock.lockGetImportJob.Unlock()
 	return mock.GetImportJobFunc(ctx, importJobID, serviceToken)
 }
 
@@ -152,9 +149,9 @@ func (mock *ImportAPIClientMock) GetImportJobCalls() []struct {
 		ImportJobID  string
 		ServiceToken string
 	}
-	lockImportAPIClientMockGetImportJob.RLock()
+	mock.lockGetImportJob.RLock()
 	calls = mock.calls.GetImportJob
-	lockImportAPIClientMockGetImportJob.RUnlock()
+	mock.lockGetImportJob.RUnlock()
 	return calls
 }
 
@@ -174,9 +171,9 @@ func (mock *ImportAPIClientMock) UpdateImportJobState(ctx context.Context, jobID
 		ServiceToken: serviceToken,
 		NewState:     newState,
 	}
-	lockImportAPIClientMockUpdateImportJobState.Lock()
+	mock.lockUpdateImportJobState.Lock()
 	mock.calls.UpdateImportJobState = append(mock.calls.UpdateImportJobState, callInfo)
-	lockImportAPIClientMockUpdateImportJobState.Unlock()
+	mock.lockUpdateImportJobState.Unlock()
 	return mock.UpdateImportJobStateFunc(ctx, jobID, serviceToken, newState)
 }
 
@@ -195,8 +192,8 @@ func (mock *ImportAPIClientMock) UpdateImportJobStateCalls() []struct {
 		ServiceToken string
 		NewState     string
 	}
-	lockImportAPIClientMockUpdateImportJobState.RLock()
+	mock.lockUpdateImportJobState.RLock()
 	calls = mock.calls.UpdateImportJobState
-	lockImportAPIClientMockUpdateImportJobState.RUnlock()
+	mock.lockUpdateImportJobState.RUnlock()
 	return calls
 }
