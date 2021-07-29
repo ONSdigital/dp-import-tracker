@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
+	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/api/mock"
 	. "github.com/smartystreets/goconvey/convey"

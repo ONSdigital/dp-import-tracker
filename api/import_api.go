@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 
-	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
+	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
 	"github.com/ONSdigital/log.go/log"
 )
 

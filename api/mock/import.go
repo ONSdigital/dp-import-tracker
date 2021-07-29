@@ -5,7 +5,7 @@ package mock
 
 import (
 	"context"
-	"github.com/ONSdigital/dp-api-clients-go/importapi"
+	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"sync"
@@ -17,25 +17,25 @@ var _ api.ImportAPIClient = &ImportAPIClientMock{}
 
 // ImportAPIClientMock is a mock implementation of api.ImportAPIClient.
 //
-//     func TestSomethingThatUsesImportAPIClient(t *testing.T) {
+// 	func TestSomethingThatUsesImportAPIClient(t *testing.T) {
 //
-//         // make and configure a mocked api.ImportAPIClient
-//         mockedImportAPIClient := &ImportAPIClientMock{
-//             CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
-// 	               panic("mock out the Checker method")
-//             },
-//             GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
-// 	               panic("mock out the GetImportJob method")
-//             },
-//             UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState string) error {
-// 	               panic("mock out the UpdateImportJobState method")
-//             },
-//         }
+// 		// make and configure a mocked api.ImportAPIClient
+// 		mockedImportAPIClient := &ImportAPIClientMock{
+// 			CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
+// 				panic("mock out the Checker method")
+// 			},
+// 			GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
+// 				panic("mock out the GetImportJob method")
+// 			},
+// 			UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState string) error {
+// 				panic("mock out the UpdateImportJobState method")
+// 			},
+// 		}
 //
-//         // use mockedImportAPIClient in code that requires api.ImportAPIClient
-//         // and then make assertions.
+// 		// use mockedImportAPIClient in code that requires api.ImportAPIClient
+// 		// and then make assertions.
 //
-//     }
+// 	}
 type ImportAPIClientMock struct {
 	// CheckerFunc mocks the Checker method.
 	CheckerFunc func(ctx context.Context, check *healthcheck.CheckState) error

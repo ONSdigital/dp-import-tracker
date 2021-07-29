@@ -4,7 +4,8 @@ import (
 	"context"
 	"net/url"
 
-	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
+	dataset "github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
 	"github.com/ONSdigital/log.go/log"
 )
 
@@ -18,7 +19,7 @@ type DatasetAPI struct {
 
 // GetInstance asks the Dataset API for the details for instanceID
 func (api *DatasetAPI) GetInstance(ctx context.Context, instanceID string) (instance dataset.Instance, isFatal bool, err error) {
-	instance, err = api.Client.GetInstance(ctx, "", api.ServiceAuthToken, "", instanceID)
+	instance, _, err = api.Client.GetInstance(ctx, "", api.ServiceAuthToken, "", instanceID, headers.IfMatchAnyETag)
 	isFatal = errorChecker(ctx, "GetInstance", err, &log.Data{"instanceID": instanceID})
 	return
 }
@@ -32,12 +33,12 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 
 // SetImportObservationTaskComplete marks the import observation task state as completed for an instance
 func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
-	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
 		dataset.InstanceImportTasks{
 			ImportObservations: &dataset.ImportObservationsTask{
 				State: dataset.StateCompleted.String(),
 			},
-		},
+		}, headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "SetImportObservationTaskComplete", err, &log.Data{})
 	return
@@ -45,14 +46,14 @@ func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, ins
 
 // UpdateInstanceWithNewInserts increments the observation inserted count for an instance
 func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanceID string, observationsInserted int32) (isFatal bool, err error) {
-	err = api.Client.UpdateInstanceWithNewInserts(ctx, api.ServiceAuthToken, instanceID, observationsInserted)
+	_, err = api.Client.UpdateInstanceWithNewInserts(ctx, api.ServiceAuthToken, instanceID, observationsInserted, headers.IfMatchAnyETag)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithNewInserts", err, &log.Data{})
 	return
 }
 
 // UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
 		dataset.InstanceImportTasks{
 			BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
 				&dataset.BuildHierarchyTask{
@@ -60,7 +61,7 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 					State:         dataset.StateCompleted.String(),
 				},
 			},
-		},
+		}, headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
@@ -68,7 +69,7 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 
 // UpdateInstanceWithSearchIndexBuilt marks a search index build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
 		dataset.InstanceImportTasks{
 			BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
 				&dataset.BuildSearchIndexTask{
@@ -76,7 +77,7 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 					State:         dataset.StateCompleted.String(),
 				},
 			},
-		},
+		}, headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
@@ -84,7 +85,7 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 
 // UpdateInstanceState tells the Dataset API that the state has changed of a Dataset instance
 func (api *DatasetAPI) UpdateInstanceState(ctx context.Context, instanceID string, newState dataset.State) (isFatal bool, err error) {
-	err = api.Client.PutInstanceState(ctx, api.ServiceAuthToken, instanceID, newState)
+	_, err = api.Client.PutInstanceState(ctx, api.ServiceAuthToken, instanceID, newState, headers.IfMatchAnyETag)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
 }

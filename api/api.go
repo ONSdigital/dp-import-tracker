@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"net/url"
 
-	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
-	importapi "github.com/ONSdigital/dp-api-clients-go/importapi"
+	dataset "github.com/ONSdigital/dp-api-clients-go/v2/dataset"
+	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	"github.com/ONSdigital/log.go/log"
 )
@@ -16,11 +16,11 @@ import (
 
 // DatasetClient is an interface to represent methods called to action upon Dataset REST interface
 type DatasetClient interface {
-	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID string) (m dataset.Instance, err error)
+	GetInstance(ctx context.Context, userAuthToken, serviceAuthToken, collectionID, instanceID, ifMatch string) (m dataset.Instance, eTag string, err error)
 	GetInstancesInBatches(ctx context.Context, userAuthToken, serviceAuthToken, collectionID string, vars url.Values, batchSize, maxWorkers int) (instances dataset.Instances, err error)
-	PutInstanceImportTasks(ctx context.Context, serviceAuthToken, instanceID string, data dataset.InstanceImportTasks) error
-	UpdateInstanceWithNewInserts(ctx context.Context, serviceAuthToken, instanceID string, observationsInserted int32) error
-	PutInstanceState(ctx context.Context, serviceAuthToken, instanceID string, state dataset.State) error
+	PutInstanceImportTasks(ctx context.Context, serviceAuthToken, instanceID string, data dataset.InstanceImportTasks, ifMatch string) (eTag string, err error)
+	UpdateInstanceWithNewInserts(ctx context.Context, serviceAuthToken, instanceID string, observationsInserted int32, ifMatch string) (eTag string, err error)
+	PutInstanceState(ctx context.Context, serviceAuthToken, instanceID string, state dataset.State, ifMatch string) (eTag string, err error)
 	Checker(ctx context.Context, check *healthcheck.CheckState) error
 }
 

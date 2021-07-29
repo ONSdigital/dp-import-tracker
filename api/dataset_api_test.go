@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	dataset "github.com/ONSdigital/dp-api-clients-go/dataset"
+	dataset "github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/api/mock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -60,8 +60,8 @@ func createDatasetAPIWithMock(clientMock *mock.DatasetClientMock) *api.DatasetAP
 // create mock with GetInstance implementation
 func createGetInstanceMock(getInstanceReturn dataset.Instance, retErr error) *mock.DatasetClientMock {
 	return &mock.DatasetClientMock{
-		GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string) (dataset.Instance, error) {
-			return getInstanceReturn, retErr
+		GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+			return getInstanceReturn, "", retErr
 		},
 	}
 }
@@ -78,8 +78,8 @@ func createGetInstancesMock(getInstancesReturn dataset.Instances, retErr error) 
 // create mock with UpdateInstanceWithNewInserts implementation
 func createUpdateInstanceWithNewInsertsFunc(retErr error) *mock.DatasetClientMock {
 	return &mock.DatasetClientMock{
-		UpdateInstanceWithNewInsertsFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, observationsInserted int32) error {
-			return retErr
+		UpdateInstanceWithNewInsertsFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, observationsInserted int32, ifMatch string) (string, error) {
+			return "", retErr
 		},
 	}
 }
@@ -87,8 +87,8 @@ func createUpdateInstanceWithNewInsertsFunc(retErr error) *mock.DatasetClientMoc
 // create mock with PutInstanceImportTasks implementation
 func createPutInstanceImportTasksMock(retErr error) *mock.DatasetClientMock {
 	return &mock.DatasetClientMock{
-		PutInstanceImportTasksFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, data dataset.InstanceImportTasks) error {
-			return retErr
+		PutInstanceImportTasksFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, data dataset.InstanceImportTasks, ifMatch string) (string, error) {
+			return "", retErr
 		},
 	}
 }
@@ -96,8 +96,8 @@ func createPutInstanceImportTasksMock(retErr error) *mock.DatasetClientMock {
 // create mock with PutInstanceState implementation
 func createPutInstanceStateMock(retErr error) *mock.DatasetClientMock {
 	return &mock.DatasetClientMock{
-		PutInstanceStateFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, state dataset.State) error {
-			return retErr
+		PutInstanceStateFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, state dataset.State, ifMatch string) (string, error) {
+			return "", retErr
 		},
 	}
 }
