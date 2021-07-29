@@ -2,6 +2,8 @@ module github.com/ONSdigital/dp-import-tracker
 
 go 1.16
 
+replace github.com/coreos/etcd => github.com/coreos/etcd v3.3.24+incompatible
+
 require (
 	github.com/ONSdigital/dp-api-clients-go v1.41.1 // indirect
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.1.7-beta
