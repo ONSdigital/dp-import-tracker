@@ -53,7 +53,10 @@ func (api *DatasetAPI) UpdateInstanceWithNewInserts(ctx context.Context, instanc
 
 // UpdateInstanceWithHierarchyBuilt marks a hierarchy build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(
+		ctx,
+		api.ServiceAuthToken,
+		instanceID,
 		dataset.InstanceImportTasks{
 			BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
 				&dataset.BuildHierarchyTask{
@@ -61,7 +64,8 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 					State:         dataset.StateCompleted.String(),
 				},
 			},
-		}, headers.IfMatchAnyETag,
+		},
+		headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
@@ -69,7 +73,10 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 
 // UpdateInstanceWithSearchIndexBuilt marks a search index build task state as completed for an instance.
 func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, instanceID, dimensionID string) (isFatal bool, err error) {
-	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(
+		ctx,
+		api.ServiceAuthToken,
+		instanceID,
 		dataset.InstanceImportTasks{
 			BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
 				&dataset.BuildSearchIndexTask{
@@ -77,7 +84,8 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 					State:         dataset.StateCompleted.String(),
 				},
 			},
-		}, headers.IfMatchAnyETag,
+		},
+		headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "UpdateInstanceWithHierarchyBuilt", err, &log.Data{})
 	return
