@@ -33,12 +33,16 @@ func (api *DatasetAPI) GetInstances(ctx context.Context, vars url.Values) (insta
 
 // SetImportObservationTaskComplete marks the import observation task state as completed for an instance
 func (api *DatasetAPI) SetImportObservationTaskComplete(ctx context.Context, instanceID string) (isFatal bool, err error) {
-	_, err = api.Client.PutInstanceImportTasks(ctx, api.ServiceAuthToken, instanceID,
+	_, err = api.Client.PutInstanceImportTasks(
+		ctx,
+		api.ServiceAuthToken,
+		instanceID,
 		dataset.InstanceImportTasks{
 			ImportObservations: &dataset.ImportObservationsTask{
 				State: dataset.StateCompleted.String(),
 			},
-		}, headers.IfMatchAnyETag,
+		},
+		headers.IfMatchAnyETag,
 	)
 	isFatal = errorChecker(ctx, "SetImportObservationTaskComplete", err, &log.Data{})
 	return
