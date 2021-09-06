@@ -1,5 +1,4 @@
-DP Import Tracker
-=================
+# dp-import-tracker
 
 Check for completed import instances, and mark them (and possibly
 their associated/parent import job) as completed.
@@ -21,7 +20,7 @@ for the parent import job, if all other instances are also `completed`).
 `IMPORT_OBSERVATIONS_INSERTED_TOPIC` events are published by the
 [Observation Importer](../dp-observation-importer).
 
-### Getting started
+## Getting started
 
 Service is authenticated against `zebedee`, one can run [dp-auth-api-stub](https://github.com/ONSdigital/dp-auth-api-stub) to mimic
 service identity check in zebedee.
@@ -44,7 +43,15 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | SEARCH_BUILT_TOPIC                          | dimension-search-built                | topic name for search built
 | SEARCH_BUILT_CONSUMER_GROUP                 | dp-import-tracker                     | consumer group name for search built
 | DATA_IMPORT_COMPLETE_TOPIC                  | data-import-complete                  | topic name for hierarchies ready to be imported
-| KAFKA_ADDR                                  | localhost:9092                        | A list of kafka brokers
+| KAFKA_LEGACY_ADDR                           | `localhost:9092`                      | The addresses of the kafka brokers - non-TLS
+| KAFKA_LEGACY_VERSION                        | `1.0.2`                               | The version of Kafka - non-TLS
+| KAFKA_ADDR                                  | `localhost:9092`                      | A list of kafka brokers
+| KAFKA_VERSION                               | `1.0.2`                               | The kafka version that this service expects to connect to
+| KAFKA_SEC_PROTO                             | _unset_                               | if set to `TLS`, kafka connections will use TLS [[1]](#notes_1)
+| KAFKA_SEC_CLIENT_KEY                        | _unset_                               | PEM for the client key [[1]](#notes_1)
+| KAFKA_SEC_CLIENT_CERT                       | _unset_                               | PEM for the client certificate [[1]](#notes_1)
+| KAFKA_SEC_CA_CERTS                          | _unset_                               | CA cert chain for the server cert [[1]](#notes_1)
+| KAFKA_SEC_SKIP_VERIFY                       | false                                 | ignores server certificate issues if `true` [[1]](#notes_1)
 | IMPORT_API_ADDR                             | http://localhost:21800                | The address of Import API
 | DATASET_API_ADDR                            | http://localhost:22000                | The address of Dataset API
 | BIND_ADDR                                   | :21300                                | address to listen on for healthcheck requests
@@ -56,6 +63,10 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | INITIALISE_LIST_ATTEMPTS                    | 20                                    | on startup, how many times to retry for instances, before exiting, see INITIALISE_LIST_INTERVAL
 | HEALTHCHECK_INTERVAL                        | 30s                                   | The period of time between health checks
 | HEALTHCHECK_CRITICAL_TIMEOUT                | 90s                                   | The period of time after which failing checks will result in critical global check
+
+**Notes:**
+
+1. <a name="notes_1">For more info, see the [kafka TLS examples documentation](https://github.com/ONSdigital/dp-kafka/tree/main/examples#tls)</a>
 
 ### Contributing
 
