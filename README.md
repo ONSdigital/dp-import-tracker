@@ -52,7 +52,7 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | KAFKA_SEC_CLIENT_CERT                       | _unset_                               | PEM for the client certificate [[1]](#notes_1)
 | KAFKA_SEC_CA_CERTS                          | _unset_                               | CA cert chain for the server cert [[1]](#notes_1)
 | KAFKA_SEC_SKIP_VERIFY                       | false                                 | ignores server certificate issues if `true` [[1]](#notes_1)
-| KAFKA_OFFSET_OLDEST                         | false                                 | sets kafka offset to oldest if `true`
+| KAFKA_OFFSET_OLDEST                         | true                                  | sets kafka offset to oldest if `true`
 | IMPORT_API_ADDR                             | http://localhost:21800                | The address of Import API
 | DATASET_API_ADDR                            | http://localhost:22000                | The address of Dataset API
 | BIND_ADDR                                   | :21300                                | address to listen on for healthcheck requests
