@@ -19,7 +19,16 @@ type Config struct {
 	SearchBuiltTopic                  string        `envconfig:"SEARCH_BUILT_TOPIC"`
 	SearchBuiltConsumerGroup          string        `envconfig:"SEARCH_BUILT_CONSUMER_GROUP"`
 	DataImportCompleteTopic           string        `envconfig:"DATA_IMPORT_COMPLETE_TOPIC"`
+	KafkaLegacyAddr                   []string      `envconfig:"KAFKA_LEGACY_ADDR"`
+	KafkaLegacyVersion                string        `envconfig:"KAFKA_LEGACY_VERSION"`
 	Brokers                           []string      `envconfig:"KAFKA_ADDR"`
+	KafkaVersion                      string        `envconfig:"KAFKA_VERSION"`
+	KafkaOffsetOldest                 bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
+	KafkaSecProtocol                  string        `envconfig:"KAFKA_SEC_PROTO"`
+	KafkaSecCACerts                   string        `envconfig:"KAFKA_SEC_CA_CERTS"`
+	KafkaSecClientCert                string        `envconfig:"KAFKA_SEC_CLIENT_CERT"`
+	KafkaSecClientKey                 string        `envconfig:"KAFKA_SEC_CLIENT_KEY"                 json:"-"`
+	KafkaSecSkipVerify                bool          `envconfig:"KAFKA_SEC_SKIP_VERIFY"`
 	ImportAPIAddr                     string        `envconfig:"IMPORT_API_ADDR"`
 	DatasetAPIAddr                    string        `envconfig:"DATASET_API_ADDR"`
 	DatasetAPIMaxWorkers              int           `envconfig:"DATASET_API_MAX_WORKERS"` // maximum number of concurrent go-routines requesting items to datast api at the same time
@@ -32,8 +41,6 @@ type Config struct {
 	InitialiseListAttempts            int           `envconfig:"INITIALISE_LIST_ATTEMPTS"`
 	HealthCheckInterval               time.Duration `envconfig:"HEALTHCHECK_INTERVAL"`
 	HealthCheckCriticalTimeout        time.Duration `envconfig:"HEALTHCHECK_CRITICAL_TIMEOUT"`
-	KafkaVersion                      string        `envconfig:"KAFKA_VERSION"`
-	KafkaOffsetOldest                 bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
 }
 
 // NewConfig creates the config object
@@ -50,7 +57,11 @@ func NewConfig() (*Config, error) {
 		SearchBuiltTopic:                  "dimension-search-built",
 		SearchBuiltConsumerGroup:          "dp-import-tracker",
 		DataImportCompleteTopic:           "data-import-complete",
+		KafkaLegacyAddr:                   []string{"localhost:9092"},
+		KafkaLegacyVersion:                "1.0.2",
 		Brokers:                           []string{"localhost:9092"},
+		KafkaVersion:                      "1.0.2",
+		KafkaOffsetOldest:                 true,
 		ImportAPIAddr:                     "http://localhost:21800",
 		DatasetAPIAddr:                    "http://localhost:22000",
 		DatasetAPIMaxWorkers:              100,
@@ -61,8 +72,6 @@ func NewConfig() (*Config, error) {
 		InitialiseListAttempts:            20,
 		HealthCheckInterval:               30 * time.Second,
 		HealthCheckCriticalTimeout:        90 * time.Second,
-		KafkaVersion:                      "1.0.2",
-		KafkaOffsetOldest:                 true,
 	}
 	if err := envconfig.Process("", &cfg); err != nil {
 		return nil, err
