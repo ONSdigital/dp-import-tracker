@@ -21,7 +21,7 @@ type Config struct {
 	DataImportCompleteTopic           string        `envconfig:"DATA_IMPORT_COMPLETE_TOPIC"`
 	KafkaLegacyAddr                   []string      `envconfig:"KAFKA_LEGACY_ADDR"`
 	KafkaLegacyVersion                string        `envconfig:"KAFKA_LEGACY_VERSION"`
-	Brokers                           []string      `envconfig:"KAFKA_ADDR"`
+	KafkaAddr                         []string      `envconfig:"KAFKA_ADDR"`
 	KafkaVersion                      string        `envconfig:"KAFKA_VERSION"`
 	KafkaOffsetOldest                 bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
 	KafkaSecProtocol                  string        `envconfig:"KAFKA_SEC_PROTO"`
@@ -59,7 +59,7 @@ func NewConfig() (*Config, error) {
 		DataImportCompleteTopic:           "data-import-complete",
 		KafkaLegacyAddr:                   []string{"localhost:9092"},
 		KafkaLegacyVersion:                "1.0.2",
-		Brokers:                           []string{"localhost:9092"},
+		KafkaAddr:                         []string{"localhost:9092"},
 		KafkaVersion:                      "1.0.2",
 		KafkaOffsetOldest:                 true,
 		ImportAPIAddr:                     "http://localhost:21800",

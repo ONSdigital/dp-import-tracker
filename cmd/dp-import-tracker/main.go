@@ -500,7 +500,7 @@ func main() {
 	// Create HierarchyBuilt kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	hierarchyBuiltConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.Brokers,
+		cfg.KafkaAddr,
 		cfg.HierarchyBuiltTopic,
 		cfg.HierarchyBuiltConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
@@ -514,7 +514,7 @@ func main() {
 	// Create SearchBuilt kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	searchBuiltConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.Brokers,
+		cfg.KafkaAddr,
 		cfg.SearchBuiltTopic,
 		cfg.SearchBuiltConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
@@ -542,7 +542,7 @@ func main() {
 
 	dataImportCompleteProducer, err := kafka.NewProducer(
 		ctx,
-		cfg.Brokers,
+		cfg.KafkaAddr,
 		cfg.DataImportCompleteTopic,
 		pChannels,
 		pConfig,
