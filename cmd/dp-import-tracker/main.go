@@ -451,19 +451,32 @@ func main() {
 		kafkaOffset = kafka.OffsetOldest
 	}
 
+	cgLegacyConfig := &kafka.ConsumerGroupConfig{
+		Offset:       &kafkaOffset,
+		KafkaVersion: &cfg.KafkaLegacyVersion,
+	}
+
 	cgConfig := &kafka.ConsumerGroupConfig{
 		Offset:       &kafkaOffset,
 		KafkaVersion: &cfg.KafkaVersion,
+	}
+	if cfg.KafkaSecProtocol == "TLS" {
+		cgConfig.SecurityConfig = kafka.GetSecurityConfig(
+			cfg.KafkaSecCACerts,
+			cfg.KafkaSecClientCert,
+			cfg.KafkaSecClientKey,
+			cfg.KafkaSecSkipVerify,
+		)
 	}
 
 	// Create InstanceEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.Brokers,
+		cfg.KafkaLegacyAddr,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		cgLegacyConfig,
 	)
 
 	if err != nil {
@@ -473,11 +486,11 @@ func main() {
 	// Create ObservationsInsertedEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.Brokers,
+		cfg.KafkaLegacyAddr,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		cgLegacyConfig,
 	)
 
 	if err != nil {
@@ -517,6 +530,14 @@ func main() {
 	pChannels := kafka.CreateProducerChannels()
 	pConfig := &kafka.ProducerConfig{
 		KafkaVersion: &cfg.KafkaVersion,
+	}
+	if cfg.KafkaSecProtocol == "TLS" {
+		pConfig.SecurityConfig = kafka.GetSecurityConfig(
+			cfg.KafkaSecCACerts,
+			cfg.KafkaSecClientCert,
+			cfg.KafkaSecClientKey,
+			cfg.KafkaSecSkipVerify,
+		)
 	}
 
 	dataImportCompleteProducer, err := kafka.NewProducer(
