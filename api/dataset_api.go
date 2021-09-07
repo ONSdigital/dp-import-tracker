@@ -6,7 +6,7 @@ import (
 
 	dataset "github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	"github.com/ONSdigital/dp-api-clients-go/v2/headers"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // DatasetAPI extends the dataset api Client with json - bson mapping, specific calls, and error management

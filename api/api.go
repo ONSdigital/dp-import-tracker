@@ -8,7 +8,7 @@ import (
 	dataset "github.com/ONSdigital/dp-api-clients-go/v2/dataset"
 	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 //go:generate moq -out ./mock/dataset.go -pkg mock . DatasetClient
@@ -53,6 +53,6 @@ func errorChecker(ctx context.Context, tag string, err error, logData *log.Data)
 		isFatal = true
 	}
 	(*logData)["is_fatal"] = isFatal
-	log.Event(ctx, tag, log.ERROR, log.Error(err), *logData)
+	log.Error(ctx, tag, err, *logData)
 	return
 }

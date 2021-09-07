@@ -4,7 +4,7 @@ import (
 	"context"
 
 	importapi "github.com/ONSdigital/dp-api-clients-go/v2/importapi"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 // ImportAPI extends the import api Client with error management and service token

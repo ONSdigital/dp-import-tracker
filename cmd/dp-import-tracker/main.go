@@ -19,7 +19,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 var (
@@ -93,7 +93,7 @@ func (trackedInstances trackedInstanceList) updateInstanceFromDatasetAPI(ctx con
 		return isFatal, err
 	}
 	if instanceFromAPI.ID == "" {
-		log.Event(ctx, "no such instance at API - removing from tracker", log.INFO, log.Data{"InstanceID": instanceID})
+		log.Info(ctx, "no such instance at API - removing from tracker", log.Data{"InstanceID": instanceID})
 		delete(trackedInstances, instanceID)
 		return false, nil
 	}
@@ -177,7 +177,7 @@ func (trackedInstances trackedInstanceList) getInstanceList(ctx context.Context,
 		hierarchyTasks := createHierarchyTaskMapFromInstance(instance)
 		searchTasks := createSearchTaskMapFromInstance(instance)
 
-		log.Event(ctx, "adding instance for tracking", log.INFO, log.Data{
+		log.Info(ctx, "adding instance for tracking", log.Data{
 			"instance_id":     instance.ID,
 			"current_state":   instance.State,
 			"hierarchy_tasks": hierarchyTasks,
@@ -228,9 +228,9 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
-	log.Event(ctx, "calling import api to update job state", log.INFO, log.Data{"job_id": jobID, "setting_state": targetState})
+	log.Info(ctx, "calling import api to update job state", log.Data{"job_id": jobID, "setting_state": targetState})
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
-		log.Event(ctx, "CheckImportJobCompletionState update", log.ERROR, log.Error(err), log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
+		log.Error(ctx, "CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}
 	return false, nil
 }
@@ -255,10 +255,10 @@ func manageActiveInstanceEvents(
 	for i := 1; i <= cfg.InitialiseListAttempts; i++ {
 		if _, err := trackedInstances.getInstanceList(ctx, datasetAPI); err != nil {
 			if i == cfg.InitialiseListAttempts {
-				log.Event(ctx, "failed to obtain initial instance list", log.ERROR, log.Error(err), log.Data{"attempt": i})
+				log.Error(ctx, "failed to obtain initial instance list", err, log.Data{"attempt": i})
 				return
 			}
-			log.Event(ctx, "could not obtain initial instance list - will retry", log.ERROR, log.Error(err), log.Data{"attempt": i})
+			log.Error(ctx, "could not obtain initial instance list - will retry", err, log.Data{"attempt": i})
 			time.Sleep(cfg.InitialiseListInterval)
 			continue
 		}
@@ -275,7 +275,7 @@ func manageActiveInstanceEvents(
 	for looping := true; looping; {
 		select {
 		case <-ctx.Done():
-			log.Event(ctx, "manageActiveInstanceEvents: loop ending (context done)", log.INFO)
+			log.Info(ctx, "manageActiveInstanceEvents: loop ending (context done)")
 			looping = false
 		case <-tickerChan:
 			for instanceID := range trackedInstances {
@@ -288,7 +288,7 @@ func manageActiveInstanceEvents(
 				}
 
 				if isFatal, err := trackedInstances.updateInstanceFromDatasetAPI(ctx, datasetAPI, instanceID); err != nil {
-					log.Event(ctx, "could not update instance", log.ERROR, log.Error(err), log.Data{"instanceID": instanceID, "is_fatal": isFatal})
+					log.Error(ctx, "could not update instance", err, log.Data{"instanceID": instanceID, "is_fatal": isFatal})
 					stopTracking = isFatal
 				} else if !trackedInstances[instanceID].observationInsertComplete &&
 					trackedInstances[instanceID].totalObservations > 0 &&
@@ -299,27 +299,27 @@ func manageActiveInstanceEvents(
 					logData["observations"] = trackedInstances[instanceID].observationsInsertedCount
 					logData["total_observations"] = trackedInstances[instanceID].totalObservations
 
-					log.Event(ctx, "import observations possibly complete - will check db", log.INFO, logData)
+					log.Info(ctx, "import observations possibly complete - will check db", logData)
 					// check db for actual count(insertedObservations) - avoid kafka-double-counting
 					countObservations, err := store.CountInsertedObservations(ctx, instanceID)
 					if err != nil {
-						log.Event(ctx, "Failed to check db for actual count(insertedObservations) now instance appears to be completed", log.ERROR, log.Error(err), logData)
+						log.Error(ctx, "Failed to check db for actual count(insertedObservations) now instance appears to be completed", err, logData)
 					} else {
 						logData["db_count"] = countObservations
 						if countObservations != trackedInstances[instanceID].totalObservations {
-							log.Event(ctx, "db_count of inserted observations != expected total - will continue to monitor", log.INFO, logData)
+							log.Info(ctx, "db_count of inserted observations != expected total - will continue to monitor", logData)
 						} else {
 
-							log.Event(ctx, "import observations complete, calling dataset api to set import observation task complete", log.INFO, logData)
+							log.Info(ctx, "import observations complete, calling dataset api to set import observation task complete", logData)
 							if isFatal, err := datasetAPI.SetImportObservationTaskComplete(ctx, instanceID); err != nil {
 								logData["is_fatal"] = isFatal
-								log.Event(ctx, "failed to set import observation task state=completed", log.ERROR, log.Error(err), logData)
+								log.Error(ctx, "failed to set import observation task state=completed", err, logData)
 								stopTracking = isFatal
 							}
 
 							err = produceDataImportCompleteEvents(ctx, trackedInstances[instanceID], instanceID, dataImportCompleteProducer)
 							if err != nil {
-								log.Event(ctx, "failed to send data import complete events", log.ERROR, log.Error(err), logData)
+								log.Error(ctx, "failed to send data import complete events", err, logData)
 								stopTracking = true
 							}
 						}
@@ -331,11 +331,11 @@ func manageActiveInstanceEvents(
 					stopTracking = true
 					if isFatal, err := datasetAPI.UpdateInstanceState(ctx, instanceID, dataset.StateCompleted); err != nil {
 						logData["is_fatal"] = isFatal
-						log.Event(ctx, "failed to set import instance state=completed", log.ERROR, log.Error(err), logData)
+						log.Error(ctx, "failed to set import instance state=completed", err, logData)
 						stopTracking = isFatal
 					} else if isFatal, err := CheckImportJobCompletionState(ctx, importAPI, datasetAPI, trackedInstances[instanceID].jobID, instanceID); err != nil {
 						logData["is_fatal"] = isFatal
-						log.Event(ctx, "failed to check import job when instance completed", log.ERROR, log.Error(err), logData)
+						log.Error(ctx, "failed to check import job when instance completed", err, logData)
 						stopTracking = isFatal
 					}
 				}
@@ -343,17 +343,17 @@ func manageActiveInstanceEvents(
 				if stopTracking {
 					// no (or fatal) errors, so stop tracking the completed (or failed) instance
 					delete(trackedInstances, instanceID)
-					log.Event(ctx, "ceased monitoring instance", log.INFO, logData)
+					log.Info(ctx, "ceased monitoring instance", logData)
 				}
 
 			}
 		case newInstanceMsg := <-createInstanceChan:
 			if _, ok := trackedInstances[newInstanceMsg.InstanceID]; ok {
-				log.Event(ctx, "", log.ERROR, log.Error(errors.New("import instance exists")), log.Data{"instanceID": newInstanceMsg})
+				log.Error(ctx, "", errors.New("import instance exists"), log.Data{"instanceID": newInstanceMsg})
 				continue
 			}
 
-			log.Event(ctx, "new import instance", log.INFO, log.Data{
+			log.Info(ctx, "new import instance", log.Data{
 				"instance_id": newInstanceMsg.InstanceID,
 				"job_id":      newInstanceMsg.JobID,
 				"url":         newInstanceMsg.URL,
@@ -370,17 +370,17 @@ func manageActiveInstanceEvents(
 			observationsInserted := updateObservationsInserted.NumberOfObservationsInserted
 			logData := log.Data{"instance_id": instanceID, "observations_inserted": observationsInserted}
 			if ti, ok := trackedInstances[instanceID]; !ok {
-				log.Event(ctx, "warning: import instance not in tracked list for update", log.INFO, logData)
+				log.Info(ctx, "warning: import instance not in tracked list for update", logData)
 			} else {
 				if !ti.begunObservationInsertUpdate {
-					log.Event(ctx, "updating number of observations inserted for instance", log.INFO, log.Data{"instance_id": instanceID})
+					log.Info(ctx, "updating number of observations inserted for instance", log.Data{"instance_id": instanceID})
 					ti.begunObservationInsertUpdate = true
 					trackedInstances[instanceID] = ti
 				}
 			}
 			if isFatal, err := datasetAPI.UpdateInstanceWithNewInserts(ctx, instanceID, observationsInserted); err != nil {
 				logData["is_fatal"] = isFatal
-				log.Event(ctx, "failed to add inserts to instance", log.ERROR, log.Error(err), logData)
+				log.Error(ctx, "failed to add inserts to instance", err, logData)
 				if isFatal {
 					updateObservationsInserted.DoneChan <- ErrPerm
 				} else {
@@ -391,7 +391,7 @@ func manageActiveInstanceEvents(
 			}
 		}
 	}
-	log.Event(ctx, "Instance loop completed", log.INFO)
+	log.Info(ctx, "Instance loop completed")
 }
 
 func produceDataImportCompleteEvents(
@@ -408,7 +408,7 @@ func produceDataImportCompleteEvents(
 			DimensionName: task.dimensionName,
 		}
 
-		log.Event(ctx, "data import complete, producing event message", log.INFO,
+		log.Info(ctx, "data import complete, producing event message",
 			log.Data{"event": dataImportCompleteEvent})
 
 		bytes, err := events.DataImportCompleteSchema.Marshal(dataImportCompleteEvent)
@@ -424,7 +424,7 @@ func produceDataImportCompleteEvents(
 
 // logFatal is a utility method for a common failure pattern in main()
 func logFatal(ctx context.Context, contextMessage string, err error, data log.Data) {
-	log.Event(ctx, contextMessage, log.FATAL, log.Error(err), data)
+	log.Fatal(ctx, contextMessage, err, data)
 	os.Exit(1)
 }
 
@@ -443,7 +443,7 @@ func main() {
 	}
 
 	// sensitive fields are omitted from config.String().
-	log.Event(ctx, "loaded config", log.INFO, log.Data{"config": cfg})
+	log.Info(ctx, "loaded config", log.Data{"config": cfg})
 
 	kafkaOffset := kafka.OffsetNewest
 
@@ -623,17 +623,17 @@ func main() {
 		for looping := true; looping; {
 			select {
 			case <-ctx.Done():
-				log.Event(ctx, "main loop aborting", log.INFO, log.Data{"ctx_err": ctx.Err()})
+				log.Info(ctx, "main loop aborting", log.Data{"ctx_err": ctx.Err()})
 				looping = false
 			case err = <-httpServerDoneChan:
-				log.Event(ctx, "unexpected httpServer exit", log.ERROR, log.Error(err))
+				log.Error(ctx, "unexpected httpServer exit", err)
 				looping = true
 			case newInstanceMessage := <-newInstanceEventConsumer.Channels().Upstream:
 				// This context will be obtained from the received kafka message in the future
 				kafkaContext := context.Background()
 				var newInstanceEvent events.InputFileAvailable
 				if err = events.InputFileAvailableSchema.Unmarshal(newInstanceMessage.GetData(), &newInstanceEvent); err != nil {
-					log.Event(kafkaContext, "TODO handle unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+					log.Error(kafkaContext, "TODO handle unmarshal error", err, log.Data{"topic": cfg.NewInstanceTopic})
 				} else {
 					createInstanceChan <- newInstanceEvent
 				}
@@ -644,13 +644,13 @@ func main() {
 				var insertedUpdate insertedObservationsEvent
 				msg := insertedMessage.GetData()
 				if err = events.ObservationsInsertedSchema.Unmarshal(msg, &insertedUpdate); err != nil {
-					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+					log.Error(kafkaContext, "unmarshal error", err, log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 				} else {
 					insertedUpdate.DoneChan = make(chan insertResult)
 					updateInstanceWithObservationsInsertedChan <- insertedUpdate
 					if insertRes := <-insertedUpdate.DoneChan; insertRes == ErrRetry {
 						// do not commit, update was non-fatal (will retry)
-						log.Event(kafkaContext, "non-commit", log.ERROR, log.Error(errors.New("non-fatal error")), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
+						log.Error(kafkaContext, "non-commit", errors.New("non-fatal error"), log.Data{"topic": cfg.ObservationsInsertedTopic, "msg": string(msg)})
 						continue
 					}
 				}
@@ -662,12 +662,12 @@ func main() {
 				if err = events.HierarchyBuiltSchema.Unmarshal(hierarchyBuiltMessage.GetData(), &event); err != nil {
 
 					// todo: call error reporter
-					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+					log.Error(kafkaContext, "unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 
 				} else {
 
 					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Event(kafkaContext, "processing hierarchy built message", log.INFO, logData)
+					log.Info(kafkaContext, "processing hierarchy built message", logData)
 
 					if isFatal, err := datasetAPI.UpdateInstanceWithHierarchyBuilt(
 						kafkaContext,
@@ -676,10 +676,10 @@ func main() {
 
 						if isFatal {
 							// todo: call error reporter
-							log.Event(kafkaContext, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
+							log.Error(kafkaContext, "failed to update instance with hierarchy built status", err, logData)
 						}
 					}
-					log.Event(kafkaContext, "updated instance with hierarchy built. committing message", log.INFO, logData)
+					log.Info(kafkaContext, "updated instance with hierarchy built. committing message", logData)
 				}
 				hierarchyBuiltMessage.CommitAndRelease()
 
@@ -690,12 +690,12 @@ func main() {
 				if err = events.SearchIndexBuiltSchema.Unmarshal(searchBuiltMessage.GetData(), &event); err != nil {
 
 					// todo: call error reporter
-					log.Event(kafkaContext, "unmarshal error", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+					log.Error(kafkaContext, "unmarshal error", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 
 				} else {
 
 					logData := log.Data{"instance_id": event.InstanceID, "dimension_name": event.DimensionName}
-					log.Event(kafkaContext, "processing search index built message", log.INFO, logData)
+					log.Info(kafkaContext, "processing search index built message", logData)
 
 					if isFatal, err := datasetAPI.UpdateInstanceWithSearchIndexBuilt(
 						kafkaContext,
@@ -704,16 +704,16 @@ func main() {
 
 						if isFatal {
 							// todo: call error reporter
-							log.Event(kafkaContext, "failed to update instance with hierarchy built status", log.ERROR, log.Error(err), logData)
+							log.Error(kafkaContext, "failed to update instance with hierarchy built status", err, logData)
 						}
 					}
-					log.Event(kafkaContext, "updated instance with search index built. committing message", log.INFO, logData)
+					log.Info(kafkaContext, "updated instance with search index built. committing message", logData)
 				}
 				searchBuiltMessage.CommitAndRelease()
 			}
 
 		}
-		log.Event(ctx, "main loop completed", log.INFO)
+		log.Info(ctx, "main loop completed")
 	}()
 
 	// block until signal or fatal errors in a service handler, then continue to shutdown
@@ -731,7 +731,7 @@ func main() {
 	// XXX XXX XXX XXX
 
 	// gracefully shutdown the application, closing any open resources
-	log.Event(ctx, "Start shutdown", log.ERROR, log.Error(err), log.Data{"timeout": cfg.ShutdownTimeout})
+	log.Error(ctx, "Start shutdown", err, log.Data{"timeout": cfg.ShutdownTimeout})
 
 	// Create context with timeout - Note: we can't reuse the main context, as we will cancel it before shutting down.
 	shutdownContext, shutdownContextCancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
@@ -745,13 +745,13 @@ func main() {
 		func() {
 			var err error
 			if err = api.StopHealthCheck(shutdownContext, &hc); err != nil {
-				log.Event(ctx, "bad healthcheck close", log.ERROR, log.Error(err))
+				log.Error(ctx, "bad healthcheck close", err)
 			}
 			<-httpServerDoneChan
 		},
 	})
 	if didTimeout {
-		log.Event(ctx, "Shutdown timed out at step 1 (healthcheck)", log.ERROR, log.Data{"context": shutdownContext.Err()})
+		log.Error(ctx, "Shutdown timed out at step 1 (healthcheck)", errors.New("Shutdown timed out at step 1 (healthcheck)"), log.Data{"context": shutdownContext.Err()})
 		os.Exit(1)
 	}
 
@@ -762,13 +762,13 @@ func main() {
 			// Shutdown ObservationsInsertedEventConsumer
 			var err error
 			if err = observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-				log.Event(ctx, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
+				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 			} else {
-				log.Event(ctx, "listen stopped", log.INFO, log.Data{"topic": cfg.ObservationsInsertedTopic})
+				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.ObservationsInsertedTopic})
 			}
 			<-mainLoopEndedChan
 			if err = observationsInsertedEventConsumer.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.ObservationsInsertedTopic})
+				log.Error(ctx, "bad close", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 			}
 		},
 
@@ -776,19 +776,19 @@ func main() {
 			// Shutdown NewInstanceEventConsumer and graphDB
 			var err error
 			if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-				log.Event(ctx, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 			} else {
-				log.Event(ctx, "listen stopped", log.INFO, log.Data{"topic": cfg.NewInstanceTopic})
+				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.NewInstanceTopic})
 			}
 			<-mainLoopEndedChan
 			if err = newInstanceEventConsumer.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.NewInstanceTopic})
+				log.Error(ctx, "bad close", err, log.Data{"topic": cfg.NewInstanceTopic})
 			}
 			if err = graphDB.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad db close", log.ERROR, log.Error(err), nil)
+				log.Error(ctx, "bad db close", err, nil)
 			}
 			if err = graphErrorConsumer.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad db error consumer close", log.ERROR, log.Error(err), nil)
+				log.Error(ctx, "bad db error consumer close", err, nil)
 			}
 		},
 
@@ -796,13 +796,13 @@ func main() {
 			// Shutdown hierarchyBuiltConsumer
 			var err error
 			if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-				log.Event(ctx, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 			} else {
-				log.Event(ctx, "listen stopped", log.INFO, log.Data{"topic": cfg.HierarchyBuiltTopic})
+				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.HierarchyBuiltTopic})
 			}
 			<-mainLoopEndedChan
 			if err = hierarchyBuiltConsumer.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.HierarchyBuiltTopic})
+				log.Error(ctx, "bad close", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 			}
 		},
 
@@ -810,24 +810,24 @@ func main() {
 			// Shutdown SearchBuiltConsumer
 			var err error
 			if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
-				log.Event(ctx, "bad listen stop", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
+				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
 			} else {
-				log.Event(ctx, "listen stopped", log.INFO, log.Data{"topic": cfg.SearchBuiltTopic})
+				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.SearchBuiltTopic})
 			}
 			<-mainLoopEndedChan
 			if err = searchBuiltConsumer.Close(shutdownContext); err != nil {
-				log.Event(ctx, "bad close", log.ERROR, log.Error(err), log.Data{"topic": cfg.SearchBuiltTopic})
+				log.Error(ctx, "bad close", err, log.Data{"topic": cfg.SearchBuiltTopic})
 			}
 		},
 	})
 	if didTimeout {
-		log.Event(ctx, "Shutdown timed out at step 2", log.ERROR, log.Data{"context": shutdownContext.Err()})
+		log.Error(ctx, "Shutdown timed out at step 2", errors.New("Shutdown timed out at step 2"), log.Data{"context": shutdownContext.Err()})
 		os.Exit(1)
 	}
 
 	// Graceful shutdown was successful (all functions ended with no timeout)
 	shutdownContextCancel()
-	log.Event(ctx, "Done shutdown gracefully", log.INFO)
+	log.Info(ctx, "Done shutdown gracefully")
 	os.Exit(0)
 }
 
