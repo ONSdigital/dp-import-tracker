@@ -8,7 +8,7 @@ import (
 
 	"github.com/ONSdigital/dp-import/events"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 )
 
 var instanceID = flag.String("instance", "ac280d98-7211-4b04-9497-40f199396cc3", "")
@@ -31,7 +31,7 @@ func main() {
 
 	producer, err := kafka.NewProducer(ctx, brokers, *topic, pChannels, pConfig)
 	if err != nil {
-		log.Event(ctx, "Error creating Kafka Producer", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "Error creating Kafka Producer", err)
 		os.Exit(1)
 	}
 
@@ -43,7 +43,7 @@ func main() {
 
 	bytes, err := events.InputFileAvailableSchema.Marshal(fileEvent)
 	if err != nil {
-		log.Event(ctx, "Error marshalling fileEvent", log.FATAL, log.Error(err))
+		log.Fatal(ctx, "Error marshalling fileEvent", err)
 		os.Exit(1)
 	}
 

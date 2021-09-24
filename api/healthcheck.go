@@ -8,7 +8,7 @@ import (
 	"github.com/ONSdigital/dp-healthcheck/healthcheck"
 	kafka "github.com/ONSdigital/dp-kafka/v2"
 	dphttp "github.com/ONSdigital/dp-net/http"
-	"github.com/ONSdigital/log.go/log"
+	"github.com/ONSdigital/log.go/v2/log"
 	"github.com/gorilla/mux"
 )
 
@@ -26,7 +26,7 @@ func StartHealthCheck(ctx context.Context, hc *healthcheck.HealthCheck, bindAddr
 
 	go func() {
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Event(ctx, "httpServer error", log.ERROR, log.Error(err))
+			log.Error(ctx, "httpServer error", err)
 			serverDone <- err
 		}
 		close(serverDone)
@@ -56,42 +56,42 @@ func RegisterCheckers(ctx context.Context, hc *healthcheck.HealthCheck,
 
 	if err = hc.AddCheck("Kafka NewInstanceEvent Consumer", newInstanceEventConsumer.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Check for Kafka New Instance Event Consumer Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Check for Kafka New Instance Event Consumer Checker", err)
 	}
 
 	if err = hc.AddCheck("Kafka ObservationsInsertedEvent Consumer", observationsInsertedEventConsumer.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Check for Kafka Observations Inserted Event Consumer Checker", err)
 	}
 
 	if err = hc.AddCheck("Kafka HierarchyBuilt Consumer", hierarchyBuiltConsumer.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Check for Kafka Hierarchy Built Consumer Checker", err)
 	}
 
 	if err = hc.AddCheck("Kafka SearchBuilt Consumer", searchBuiltConsumer.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Search Built Consumer Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Search Built Consumer Checker", err)
 	}
 
 	if err = hc.AddCheck("Kafka DataImportComplete Producer", dataImportCompleteProducer.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Data Import Complete Producer Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Data Import Complete Producer Checker", err)
 	}
 
 	if err = hc.AddCheck("importAPI", importAPI.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding importAPI Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding importAPI Checker", err)
 	}
 
 	if err = hc.AddCheck("datasetAPI", datasetAPI.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding datasetAPI Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding datasetAPI Checker", err)
 	}
 
 	if err = hc.AddCheck("Graph DB", graphDB.Checker); err != nil {
 		hasErrors = true
-		log.Event(ctx, "Error Adding Graph DB Checker", log.ERROR, log.Error(err))
+		log.Error(ctx, "Error Adding Graph DB Checker", err)
 	}
 
 	if hasErrors {
