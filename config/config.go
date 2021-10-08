@@ -19,8 +19,6 @@ type Config struct {
 	SearchBuiltTopic                  string        `envconfig:"SEARCH_BUILT_TOPIC"`
 	SearchBuiltConsumerGroup          string        `envconfig:"SEARCH_BUILT_CONSUMER_GROUP"`
 	DataImportCompleteTopic           string        `envconfig:"DATA_IMPORT_COMPLETE_TOPIC"`
-	KafkaLegacyAddr                   []string      `envconfig:"KAFKA_LEGACY_ADDR"`
-	KafkaLegacyVersion                string        `envconfig:"KAFKA_LEGACY_VERSION"`
 	KafkaAddr                         []string      `envconfig:"KAFKA_ADDR"`
 	KafkaVersion                      string        `envconfig:"KAFKA_VERSION"`
 	KafkaOffsetOldest                 bool          `envconfig:"KAFKA_OFFSET_OLDEST"`
@@ -57,8 +55,6 @@ func NewConfig() (*Config, error) {
 		SearchBuiltTopic:                  "dimension-search-built",
 		SearchBuiltConsumerGroup:          "dp-import-tracker",
 		DataImportCompleteTopic:           "data-import-complete",
-		KafkaLegacyAddr:                   []string{"localhost:9092"},
-		KafkaLegacyVersion:                "1.0.2",
 		KafkaAddr:                         []string{"localhost:9092"},
 		KafkaVersion:                      "1.0.2",
 		KafkaOffsetOldest:                 true,
