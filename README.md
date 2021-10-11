@@ -43,8 +43,6 @@ Scripts for updating and debugging Kafka can be found [here](https://github.com/
 | SEARCH_BUILT_TOPIC                          | dimension-search-built                | topic name for search built
 | SEARCH_BUILT_CONSUMER_GROUP                 | dp-import-tracker                     | consumer group name for search built
 | DATA_IMPORT_COMPLETE_TOPIC                  | data-import-complete                  | topic name for hierarchies ready to be imported
-| KAFKA_LEGACY_ADDR                           | `localhost:9092`                      | The addresses of the kafka brokers - non-TLS
-| KAFKA_LEGACY_VERSION                        | `1.0.2`                               | The version of Kafka - non-TLS
 | KAFKA_ADDR                                  | `localhost:9092`                      | A list of kafka brokers
 | KAFKA_VERSION                               | `1.0.2`                               | The kafka version that this service expects to connect to
 | KAFKA_SEC_PROTO                             | _unset_                               | if set to `TLS`, kafka connections will use TLS [[1]](#notes_1)

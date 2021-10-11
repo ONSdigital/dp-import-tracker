@@ -451,11 +451,6 @@ func main() {
 		kafkaOffset = kafka.OffsetOldest
 	}
 
-	cgLegacyConfig := &kafka.ConsumerGroupConfig{
-		Offset:       &kafkaOffset,
-		KafkaVersion: &cfg.KafkaLegacyVersion,
-	}
-
 	cgConfig := &kafka.ConsumerGroupConfig{
 		Offset:       &kafkaOffset,
 		KafkaVersion: &cfg.KafkaVersion,
@@ -472,11 +467,11 @@ func main() {
 	// Create InstanceEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaLegacyAddr,
+		cfg.KafkaAddr,
 		cfg.NewInstanceTopic,
 		cfg.NewInstanceConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgLegacyConfig,
+		cgConfig,
 	)
 
 	if err != nil {
@@ -486,11 +481,11 @@ func main() {
 	// Create ObservationsInsertedEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
 	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaLegacyAddr,
+		cfg.KafkaAddr,
 		cfg.ObservationsInsertedTopic,
 		cfg.ObservationsInsertedConsumerGroup,
 		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgLegacyConfig,
+		cgConfig,
 	)
 
 	if err != nil {
