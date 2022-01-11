@@ -63,7 +63,7 @@ func (api *DatasetAPI) UpdateInstanceWithHierarchyBuilt(ctx context.Context, ins
 		instanceID,
 		dataset.InstanceImportTasks{
 			BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
-				&dataset.BuildHierarchyTask{
+				{
 					DimensionName: dimensionID,
 					State:         dataset.StateCompleted.String(),
 				},
@@ -83,7 +83,7 @@ func (api *DatasetAPI) UpdateInstanceWithSearchIndexBuilt(ctx context.Context, i
 		instanceID,
 		dataset.InstanceImportTasks{
 			BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
-				&dataset.BuildSearchIndexTask{
+				{
 					DimensionName: dimensionID,
 					State:         dataset.StateCompleted.String(),
 				},

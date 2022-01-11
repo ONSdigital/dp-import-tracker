@@ -276,7 +276,7 @@ func TestUpdateInstanceWithHierarchyBuilt(t *testing.T) {
 
 	expectedImportTask := dataset.InstanceImportTasks{
 		BuildHierarchyTasks: []*dataset.BuildHierarchyTask{
-			&dataset.BuildHierarchyTask{
+			{
 				State:         dataset.StateCompleted.String(),
 				DimensionName: dimensionID,
 			},
@@ -325,7 +325,7 @@ func TestUpdateInstanceWithSearchIndexBuilt(t *testing.T) {
 
 	expectedImportTask := dataset.InstanceImportTasks{
 		BuildSearchIndexTasks: []*dataset.BuildSearchIndexTask{
-			&dataset.BuildSearchIndexTask{
+			{
 				State:         dataset.StateCompleted.String(),
 				DimensionName: dimensionID,
 			},

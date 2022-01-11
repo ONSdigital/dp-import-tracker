@@ -51,7 +51,7 @@ func TestGetImportJob(t *testing.T) {
 		JobID: jobID,
 		Links: importapi.LinkMap{
 			Instances: []importapi.InstanceLink{
-				importapi.InstanceLink{
+				{
 					ID:   "instanceLinkID",
 					Link: "instanceLink",
 				},
