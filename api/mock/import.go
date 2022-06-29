@@ -27,7 +27,7 @@ var _ api.ImportAPIClient = &ImportAPIClientMock{}
 // 			GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
 // 				panic("mock out the GetImportJob method")
 // 			},
-// 			UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState string) error {
+// 			UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error {
 // 				panic("mock out the UpdateImportJobState method")
 // 			},
 // 		}
@@ -44,7 +44,7 @@ type ImportAPIClientMock struct {
 	GetImportJobFunc func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error)
 
 	// UpdateImportJobStateFunc mocks the UpdateImportJobState method.
-	UpdateImportJobStateFunc func(ctx context.Context, jobID string, serviceToken string, newState string) error
+	UpdateImportJobStateFunc func(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -73,7 +73,7 @@ type ImportAPIClientMock struct {
 			// ServiceToken is the serviceToken argument value.
 			ServiceToken string
 			// NewState is the newState argument value.
-			NewState string
+			NewState importapi.State
 		}
 	}
 	lockChecker              sync.RWMutex
@@ -156,7 +156,7 @@ func (mock *ImportAPIClientMock) GetImportJobCalls() []struct {
 }
 
 // UpdateImportJobState calls UpdateImportJobStateFunc.
-func (mock *ImportAPIClientMock) UpdateImportJobState(ctx context.Context, jobID string, serviceToken string, newState string) error {
+func (mock *ImportAPIClientMock) UpdateImportJobState(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error {
 	if mock.UpdateImportJobStateFunc == nil {
 		panic("ImportAPIClientMock.UpdateImportJobStateFunc: method is nil but ImportAPIClient.UpdateImportJobState was just called")
 	}
@@ -164,7 +164,7 @@ func (mock *ImportAPIClientMock) UpdateImportJobState(ctx context.Context, jobID
 		Ctx          context.Context
 		JobID        string
 		ServiceToken string
-		NewState     string
+		NewState     importapi.State
 	}{
 		Ctx:          ctx,
 		JobID:        jobID,
@@ -184,13 +184,13 @@ func (mock *ImportAPIClientMock) UpdateImportJobStateCalls() []struct {
 	Ctx          context.Context
 	JobID        string
 	ServiceToken string
-	NewState     string
+	NewState     importapi.State
 } {
 	var calls []struct {
 		Ctx          context.Context
 		JobID        string
 		ServiceToken string
-		NewState     string
+		NewState     importapi.State
 	}
 	mock.lockUpdateImportJobState.RLock()
 	calls = mock.calls.UpdateImportJobState

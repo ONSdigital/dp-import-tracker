@@ -39,7 +39,7 @@ func createGetImportJobMock(importJob importapi.ImportJob, retErr error) *mock.I
 
 func createUpdateImportJobStateMock(retErr error) *mock.ImportAPIClientMock {
 	return &mock.ImportAPIClientMock{
-		UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState string) error {
+		UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error {
 			return retErr
 		},
 	}
@@ -102,13 +102,13 @@ func TestUpdateImportJobState(t *testing.T) {
 	Convey("When a request is made to update import job state and the client returns a generic error", t, func() {
 		mock := createUpdateImportJobStateMock(errGeneric)
 		importCli := createImportAPIWithMock(mock)
-		err := importCli.UpdateImportJobState(ctx, jobID, "completed")
+		err := importCli.UpdateImportJobState(ctx, jobID, importapi.StateCompleted)
 
 		Convey("Then the response contains the generic error", func() {
 			So(err, ShouldResemble, errGeneric)
 			So(len(mock.UpdateImportJobStateCalls()), ShouldEqual, 1)
 			So(mock.UpdateImportJobStateCalls()[0].JobID, ShouldEqual, jobID)
-			So(mock.UpdateImportJobStateCalls()[0].NewState, ShouldEqual, "completed")
+			So(mock.UpdateImportJobStateCalls()[0].NewState.String(), ShouldEqual, "completed")
 			So(mock.UpdateImportJobStateCalls()[0].ServiceToken, ShouldEqual, token)
 		})
 	})

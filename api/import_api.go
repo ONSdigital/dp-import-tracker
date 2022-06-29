@@ -21,6 +21,6 @@ func (i *ImportAPI) GetImportJob(ctx context.Context, importJobID string) (impor
 }
 
 // UpdateImportJobState wraps UpdateImportJobState from importAPI.
-func (i *ImportAPI) UpdateImportJobState(ctx context.Context, jobID, newState string) error {
+func (i *ImportAPI) UpdateImportJobState(ctx context.Context, jobID string, newState importapi.State) error {
 	return i.Client.UpdateImportJobState(ctx, jobID, i.ServiceAuthToken, newState)
 }

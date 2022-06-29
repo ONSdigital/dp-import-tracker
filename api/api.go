@@ -27,7 +27,7 @@ type DatasetClient interface {
 // ImportAPIClient is an interface to represent methods called to action upon Import API REST interface
 type ImportAPIClient interface {
 	GetImportJob(ctx context.Context, importJobID, serviceToken string) (importJob importapi.ImportJob, err error)
-	UpdateImportJobState(ctx context.Context, jobID, serviceToken string, newState string) error
+	UpdateImportJobState(ctx context.Context, jobID, serviceToken string, newState importapi.State) error
 	Checker(ctx context.Context, check *healthcheck.CheckState) error
 }
 
