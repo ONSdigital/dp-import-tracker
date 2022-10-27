@@ -21,7 +21,7 @@ all: audit test build
 
 PHONY: audit
 audit:
-	go list -json -m all | nancy sleuth
+	set -o pipefail; go list -json -m all | nancy sleuth
 
 PHONY: depends
 depends:
@@ -41,4 +41,4 @@ PHONY: test
 test:
 	go test -cover -race ./...
 
-.PHONEY: test build debug depends
+.PHONY: test build debug depends

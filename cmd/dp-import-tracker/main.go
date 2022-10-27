@@ -210,7 +210,7 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 		return false, errors.New("CheckImportJobCompletionState ImportAPI did not recognise jobID")
 	}
 
-	targetState := dataset.StateCompleted.String()
+	targetState := importapi.StateCompleted
 	for _, instanceRef := range importJobFromAPI.Links.Instances {
 		if instanceRef.ID == completedInstanceID {
 			continue
@@ -224,11 +224,11 @@ func CheckImportJobCompletionState(ctx context.Context, importAPI *api.ImportAPI
 			return false, nil
 		}
 		if instanceFromAPI.State == dataset.StateFailed.String() {
-			targetState = instanceFromAPI.State
+			targetState = importapi.StateFailed
 		}
 	}
 	// assert: all instances for jobID are marked "completed"/"error", so update import as same
-	log.Info(ctx, "calling import api to update job state", log.Data{"job_id": jobID, "setting_state": targetState})
+	log.Info(ctx, "calling import api to update job state", log.Data{"job_id": jobID, "setting_state": targetState.String()})
 	if err := importAPI.UpdateImportJobState(ctx, jobID, targetState); err != nil {
 		log.Error(ctx, "CheckImportJobCompletionState update", err, log.Data{"jobID": jobID, "last completed instanceID": completedInstanceID})
 	}

@@ -24,11 +24,11 @@ var ctx = context.Background()
 
 // instances structs for testing
 var (
-	instance0 = dataset.Instance{dataset.Version{
+	instance0 = dataset.Instance{Version: dataset.Version{
 		ID:                   instanceID_0,
 		NumberOfObservations: 1122,
 	}}
-	instance1 = dataset.Instance{dataset.Version{
+	instance1 = dataset.Instance{Version: dataset.Version{
 		ID:                   instanceID_1,
 		NumberOfObservations: 13344,
 	}}
