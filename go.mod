@@ -25,8 +25,8 @@ require (
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/smartystreets/goconvey v1.7.2
 	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/sys v0.4.0 // indirect
 )
 
 require (
