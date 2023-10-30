@@ -17,16 +17,16 @@ require (
 	github.com/ONSdigital/dp-healthcheck v1.6.1
 	github.com/ONSdigital/dp-import v1.3.1
 	github.com/ONSdigital/dp-kafka/v2 v2.8.0
-	github.com/ONSdigital/dp-net/v2 v2.11.0
+	github.com/ONSdigital/dp-net/v2 v2.11.1
 	github.com/ONSdigital/log.go/v2 v2.4.1
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/smartystreets/goconvey v1.8.0
-	golang.org/x/crypto v0.12.0 // indirect
-	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )
 
 require (
