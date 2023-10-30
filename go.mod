@@ -13,26 +13,26 @@ replace github.com/spf13/cobra => github.com/spf13/cobra v1.6.1
 
 require (
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.252.0
-	github.com/ONSdigital/dp-graph/v2 v2.15.0
+	github.com/ONSdigital/dp-graph/v2 v2.17.0
 	github.com/ONSdigital/dp-healthcheck v1.6.1
 	github.com/ONSdigital/dp-import v1.3.1
 	github.com/ONSdigital/dp-kafka/v2 v2.8.0
-	github.com/ONSdigital/dp-net/v2 v2.9.1
+	github.com/ONSdigital/dp-net/v2 v2.11.1
 	github.com/ONSdigital/log.go/v2 v2.4.1
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/smartystreets/goconvey v1.8.0
-	golang.org/x/crypto v0.1.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )
 
 require (
 	github.com/ONSdigital/golang-neo4j-bolt-driver v0.0.0-20210408132126-c2323ff08bf1 // indirect
-	github.com/ONSdigital/graphson v0.2.0 // indirect
-	github.com/ONSdigital/gremgo-neptune v1.0.2 // indirect
+	github.com/ONSdigital/graphson v0.3.0 // indirect
+	github.com/ONSdigital/gremgo-neptune v1.1.0 // indirect
 	github.com/Shopify/sarama v1.37.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.3.0 // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/go-avro/avro v0.0.0-20171219232920-444163702c11 // indirect
-	github.com/gofrs/uuid v4.3.0+incompatible // indirect
+	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
