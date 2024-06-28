@@ -11,6 +11,9 @@ exclude github.com/gorilla/sessions v1.2.1
 //	- sonatype-2019-0890	pkg:golang/github.com/pkg/sftp@v1.10.1
 replace github.com/spf13/cobra => github.com/spf13/cobra v1.6.1
 
+// [CVE-2023-48795] CWE-354: Improper Validation of Integrity Check Value
+replace golang.org/x/crypto => golang.org/x/crypto v0.17.0
+
 require (
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.252.0
 	github.com/ONSdigital/dp-graph/v2 v2.17.0
@@ -26,7 +29,7 @@ require (
 	github.com/smartystreets/goconvey v1.8.0
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 )
 
 require (
