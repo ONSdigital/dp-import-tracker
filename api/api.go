@@ -36,15 +36,15 @@ func errorChecker(ctx context.Context, tag string, err error, logData *log.Data)
 	if err == nil {
 		return false
 	}
-	switch err.(type) {
+	switch err := err.(type) {
 	case *dataset.ErrInvalidDatasetAPIResponse:
-		httpCode := err.(*dataset.ErrInvalidDatasetAPIResponse).Code()
+		httpCode := err.Code()
 		(*logData)["httpCode"] = httpCode
 		if httpCode < http.StatusInternalServerError {
 			isFatal = true
 		}
 	case *importapi.ErrInvalidAPIResponse:
-		httpCode := err.(*importapi.ErrInvalidAPIResponse).Code()
+		httpCode := err.Code()
 		(*logData)["httpCode"] = httpCode
 		if httpCode < http.StatusInternalServerError {
 			isFatal = true

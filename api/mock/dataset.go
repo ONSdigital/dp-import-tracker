@@ -18,34 +18,34 @@ var _ api.DatasetClient = &DatasetClientMock{}
 
 // DatasetClientMock is a mock implementation of api.DatasetClient.
 //
-// 	func TestSomethingThatUsesDatasetClient(t *testing.T) {
+//	func TestSomethingThatUsesDatasetClient(t *testing.T) {
 //
-// 		// make and configure a mocked api.DatasetClient
-// 		mockedDatasetClient := &DatasetClientMock{
-// 			CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
-// 				panic("mock out the Checker method")
-// 			},
-// 			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
-// 				panic("mock out the GetInstance method")
-// 			},
-// 			GetInstancesInBatchesFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, vars url.Values, batchSize int, maxWorkers int) (dataset.Instances, error) {
-// 				panic("mock out the GetInstancesInBatches method")
-// 			},
-// 			PutInstanceImportTasksFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, data dataset.InstanceImportTasks, ifMatch string) (string, error) {
-// 				panic("mock out the PutInstanceImportTasks method")
-// 			},
-// 			PutInstanceStateFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, state dataset.State, ifMatch string) (string, error) {
-// 				panic("mock out the PutInstanceState method")
-// 			},
-// 			UpdateInstanceWithNewInsertsFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, observationsInserted int32, ifMatch string) (string, error) {
-// 				panic("mock out the UpdateInstanceWithNewInserts method")
-// 			},
-// 		}
+//		// make and configure a mocked api.DatasetClient
+//		mockedDatasetClient := &DatasetClientMock{
+//			CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
+//				panic("mock out the Checker method")
+//			},
+//			GetInstanceFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, instanceID string, ifMatch string) (dataset.Instance, string, error) {
+//				panic("mock out the GetInstance method")
+//			},
+//			GetInstancesInBatchesFunc: func(ctx context.Context, userAuthToken string, serviceAuthToken string, collectionID string, vars url.Values, batchSize int, maxWorkers int) (dataset.Instances, error) {
+//				panic("mock out the GetInstancesInBatches method")
+//			},
+//			PutInstanceImportTasksFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, data dataset.InstanceImportTasks, ifMatch string) (string, error) {
+//				panic("mock out the PutInstanceImportTasks method")
+//			},
+//			PutInstanceStateFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, state dataset.State, ifMatch string) (string, error) {
+//				panic("mock out the PutInstanceState method")
+//			},
+//			UpdateInstanceWithNewInsertsFunc: func(ctx context.Context, serviceAuthToken string, instanceID string, observationsInserted int32, ifMatch string) (string, error) {
+//				panic("mock out the UpdateInstanceWithNewInserts method")
+//			},
+//		}
 //
-// 		// use mockedDatasetClient in code that requires api.DatasetClient
-// 		// and then make assertions.
+//		// use mockedDatasetClient in code that requires api.DatasetClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type DatasetClientMock struct {
 	// CheckerFunc mocks the Checker method.
 	CheckerFunc func(ctx context.Context, check *healthcheck.CheckState) error
@@ -174,7 +174,8 @@ func (mock *DatasetClientMock) Checker(ctx context.Context, check *healthcheck.C
 
 // CheckerCalls gets all the calls that were made to Checker.
 // Check the length with:
-//     len(mockedDatasetClient.CheckerCalls())
+//
+//	len(mockedDatasetClient.CheckerCalls())
 func (mock *DatasetClientMock) CheckerCalls() []struct {
 	Ctx   context.Context
 	Check *healthcheck.CheckState
@@ -217,7 +218,8 @@ func (mock *DatasetClientMock) GetInstance(ctx context.Context, userAuthToken st
 
 // GetInstanceCalls gets all the calls that were made to GetInstance.
 // Check the length with:
-//     len(mockedDatasetClient.GetInstanceCalls())
+//
+//	len(mockedDatasetClient.GetInstanceCalls())
 func (mock *DatasetClientMock) GetInstanceCalls() []struct {
 	Ctx              context.Context
 	UserAuthToken    string
@@ -270,7 +272,8 @@ func (mock *DatasetClientMock) GetInstancesInBatches(ctx context.Context, userAu
 
 // GetInstancesInBatchesCalls gets all the calls that were made to GetInstancesInBatches.
 // Check the length with:
-//     len(mockedDatasetClient.GetInstancesInBatchesCalls())
+//
+//	len(mockedDatasetClient.GetInstancesInBatchesCalls())
 func (mock *DatasetClientMock) GetInstancesInBatchesCalls() []struct {
 	Ctx              context.Context
 	UserAuthToken    string
@@ -321,7 +324,8 @@ func (mock *DatasetClientMock) PutInstanceImportTasks(ctx context.Context, servi
 
 // PutInstanceImportTasksCalls gets all the calls that were made to PutInstanceImportTasks.
 // Check the length with:
-//     len(mockedDatasetClient.PutInstanceImportTasksCalls())
+//
+//	len(mockedDatasetClient.PutInstanceImportTasksCalls())
 func (mock *DatasetClientMock) PutInstanceImportTasksCalls() []struct {
 	Ctx              context.Context
 	ServiceAuthToken string
@@ -368,7 +372,8 @@ func (mock *DatasetClientMock) PutInstanceState(ctx context.Context, serviceAuth
 
 // PutInstanceStateCalls gets all the calls that were made to PutInstanceState.
 // Check the length with:
-//     len(mockedDatasetClient.PutInstanceStateCalls())
+//
+//	len(mockedDatasetClient.PutInstanceStateCalls())
 func (mock *DatasetClientMock) PutInstanceStateCalls() []struct {
 	Ctx              context.Context
 	ServiceAuthToken string
@@ -415,7 +420,8 @@ func (mock *DatasetClientMock) UpdateInstanceWithNewInserts(ctx context.Context,
 
 // UpdateInstanceWithNewInsertsCalls gets all the calls that were made to UpdateInstanceWithNewInserts.
 // Check the length with:
-//     len(mockedDatasetClient.UpdateInstanceWithNewInsertsCalls())
+//
+//	len(mockedDatasetClient.UpdateInstanceWithNewInsertsCalls())
 func (mock *DatasetClientMock) UpdateInstanceWithNewInsertsCalls() []struct {
 	Ctx                  context.Context
 	ServiceAuthToken     string

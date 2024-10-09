@@ -17,25 +17,25 @@ var _ api.ImportAPIClient = &ImportAPIClientMock{}
 
 // ImportAPIClientMock is a mock implementation of api.ImportAPIClient.
 //
-// 	func TestSomethingThatUsesImportAPIClient(t *testing.T) {
+//	func TestSomethingThatUsesImportAPIClient(t *testing.T) {
 //
-// 		// make and configure a mocked api.ImportAPIClient
-// 		mockedImportAPIClient := &ImportAPIClientMock{
-// 			CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
-// 				panic("mock out the Checker method")
-// 			},
-// 			GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
-// 				panic("mock out the GetImportJob method")
-// 			},
-// 			UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error {
-// 				panic("mock out the UpdateImportJobState method")
-// 			},
-// 		}
+//		// make and configure a mocked api.ImportAPIClient
+//		mockedImportAPIClient := &ImportAPIClientMock{
+//			CheckerFunc: func(ctx context.Context, check *healthcheck.CheckState) error {
+//				panic("mock out the Checker method")
+//			},
+//			GetImportJobFunc: func(ctx context.Context, importJobID string, serviceToken string) (importapi.ImportJob, error) {
+//				panic("mock out the GetImportJob method")
+//			},
+//			UpdateImportJobStateFunc: func(ctx context.Context, jobID string, serviceToken string, newState importapi.State) error {
+//				panic("mock out the UpdateImportJobState method")
+//			},
+//		}
 //
-// 		// use mockedImportAPIClient in code that requires api.ImportAPIClient
-// 		// and then make assertions.
+//		// use mockedImportAPIClient in code that requires api.ImportAPIClient
+//		// and then make assertions.
 //
-// 	}
+//	}
 type ImportAPIClientMock struct {
 	// CheckerFunc mocks the Checker method.
 	CheckerFunc func(ctx context.Context, check *healthcheck.CheckState) error
@@ -101,7 +101,8 @@ func (mock *ImportAPIClientMock) Checker(ctx context.Context, check *healthcheck
 
 // CheckerCalls gets all the calls that were made to Checker.
 // Check the length with:
-//     len(mockedImportAPIClient.CheckerCalls())
+//
+//	len(mockedImportAPIClient.CheckerCalls())
 func (mock *ImportAPIClientMock) CheckerCalls() []struct {
 	Ctx   context.Context
 	Check *healthcheck.CheckState
@@ -138,7 +139,8 @@ func (mock *ImportAPIClientMock) GetImportJob(ctx context.Context, importJobID s
 
 // GetImportJobCalls gets all the calls that were made to GetImportJob.
 // Check the length with:
-//     len(mockedImportAPIClient.GetImportJobCalls())
+//
+//	len(mockedImportAPIClient.GetImportJobCalls())
 func (mock *ImportAPIClientMock) GetImportJobCalls() []struct {
 	Ctx          context.Context
 	ImportJobID  string
@@ -179,7 +181,8 @@ func (mock *ImportAPIClientMock) UpdateImportJobState(ctx context.Context, jobID
 
 // UpdateImportJobStateCalls gets all the calls that were made to UpdateImportJobState.
 // Check the length with:
-//     len(mockedImportAPIClient.UpdateImportJobStateCalls())
+//
+//	len(mockedImportAPIClient.UpdateImportJobStateCalls())
 func (mock *ImportAPIClientMock) UpdateImportJobStateCalls() []struct {
 	Ctx          context.Context
 	JobID        string
