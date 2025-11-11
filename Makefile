@@ -21,7 +21,7 @@ all: audit test build
 
 PHONY: audit
 audit:
-	set -o pipefail; go list -json -m all | nancy sleuth
+	dis-vulncheck
 
 PHONY: depends
 depends:
