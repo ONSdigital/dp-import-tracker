@@ -18,7 +18,7 @@ import (
 	"github.com/ONSdigital/dp-import-tracker/api"
 	"github.com/ONSdigital/dp-import-tracker/config"
 	"github.com/ONSdigital/dp-import/events"
-	kafka "github.com/ONSdigital/dp-kafka/v2"
+	kafka "github.com/ONSdigital/dp-kafka/v5"
 	"github.com/ONSdigital/log.go/v2/log"
 )
 
@@ -416,7 +416,7 @@ func produceDataImportCompleteEvents(
 			return err
 		}
 
-		dataImportCompleteProducer.Channels().Output <- bytes
+		dataImportCompleteProducer.Channels().Output <- kafka.BytesMessage{Value: bytes, Context: ctx}
 	}
 
 	return nil
@@ -451,12 +451,13 @@ func main() {
 		kafkaOffset = kafka.OffsetOldest
 	}
 
-	cgConfig := &kafka.ConsumerGroupConfig{
+	baseCGConfig := &kafka.ConsumerGroupConfig{
 		Offset:       &kafkaOffset,
 		KafkaVersion: &cfg.KafkaVersion,
+		BrokerAddrs:  cfg.KafkaAddr,
 	}
 	if cfg.KafkaSecProtocol == "TLS" {
-		cgConfig.SecurityConfig = kafka.GetSecurityConfig(
+		baseCGConfig.SecurityConfig = kafka.GetSecurityConfig(
 			cfg.KafkaSecCACerts,
 			cfg.KafkaSecClientCert,
 			cfg.KafkaSecClientKey,
@@ -465,13 +466,12 @@ func main() {
 	}
 
 	// Create InstanceEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
+	newInstanceCGConfig := *baseCGConfig
+	newInstanceCGConfig.Topic = cfg.NewInstanceTopic
+	newInstanceCGConfig.GroupName = cfg.NewInstanceConsumerGroup
 	newInstanceEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.NewInstanceTopic,
-		cfg.NewInstanceConsumerGroup,
-		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		&newInstanceCGConfig,
 	)
 
 	if err != nil {
@@ -479,13 +479,12 @@ func main() {
 	}
 
 	// Create ObservationsInsertedEvent kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
+	observationsInsertedCGConfig := *baseCGConfig
+	observationsInsertedCGConfig.Topic = cfg.ObservationsInsertedTopic
+	observationsInsertedCGConfig.GroupName = cfg.ObservationsInsertedConsumerGroup
 	observationsInsertedEventConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.ObservationsInsertedTopic,
-		cfg.ObservationsInsertedConsumerGroup,
-		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		&observationsInsertedCGConfig,
 	)
 
 	if err != nil {
@@ -493,13 +492,12 @@ func main() {
 	}
 
 	// Create HierarchyBuilt kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
+	hierarchyBuiltCGConfig := *baseCGConfig
+	hierarchyBuiltCGConfig.Topic = cfg.HierarchyBuiltTopic
+	hierarchyBuiltCGConfig.GroupName = cfg.HierarchyBuiltConsumerGroup
 	hierarchyBuiltConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.HierarchyBuiltTopic,
-		cfg.HierarchyBuiltConsumerGroup,
-		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		&hierarchyBuiltCGConfig,
 	)
 
 	if err != nil {
@@ -507,13 +505,12 @@ func main() {
 	}
 
 	// Create SearchBuilt kafka consumer - exit on channel validation error. Non-initialised consumers will not error at creation time.
+	searchBuiltCGConfig := *baseCGConfig
+	searchBuiltCGConfig.Topic = cfg.SearchBuiltTopic
+	searchBuiltCGConfig.GroupName = cfg.SearchBuiltConsumerGroup
 	searchBuiltConsumer, err := kafka.NewConsumerGroup(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.SearchBuiltTopic,
-		cfg.SearchBuiltConsumerGroup,
-		kafka.CreateConsumerGroupChannels(bufferSize),
-		cgConfig,
+		&searchBuiltCGConfig,
 	)
 
 	if err != nil {
@@ -521,13 +518,13 @@ func main() {
 	}
 
 	// Create DataImportComplete kafka producer - exit on channel validation error. Non-initialised producers will not error at creation time.
-
-	pChannels := kafka.CreateProducerChannels()
-	pConfig := &kafka.ProducerConfig{
+	dataImportCompleteConfig := &kafka.ProducerConfig{
 		KafkaVersion: &cfg.KafkaVersion,
+		Topic:        cfg.DataImportCompleteTopic,
+		BrokerAddrs:  cfg.KafkaAddr,
 	}
 	if cfg.KafkaSecProtocol == "TLS" {
-		pConfig.SecurityConfig = kafka.GetSecurityConfig(
+		dataImportCompleteConfig.SecurityConfig = kafka.GetSecurityConfig(
 			cfg.KafkaSecCACerts,
 			cfg.KafkaSecClientCert,
 			cfg.KafkaSecClientKey,
@@ -537,10 +534,7 @@ func main() {
 
 	dataImportCompleteProducer, err := kafka.NewProducer(
 		ctx,
-		cfg.KafkaAddr,
-		cfg.DataImportCompleteTopic,
-		pChannels,
-		pConfig,
+		dataImportCompleteConfig,
 	)
 	if err != nil {
 		logFatal(ctx, "observation import complete kafka producer error", err, nil)
@@ -604,9 +598,17 @@ func main() {
 		cfg,
 	)
 
-	// Log non-fatal errors from kafka-consumers
-	observationsInsertedEventConsumer.Channels().LogErrors(ctx, "ObservationInserted Consumer Error")
-	newInstanceEventConsumer.Channels().LogErrors(ctx, "NewInstance Consumer Error")
+	go func() {
+		for err := range observationsInsertedEventConsumer.Channels().Errors {
+			log.Error(ctx, "ObservationInserted Consumer Error", err)
+		}
+	}()
+
+	go func() {
+		for err := range newInstanceEventConsumer.Channels().Errors {
+			log.Error(ctx, "NewInstance Consumer Error", err)
+		}
+	}()
 
 	// loop over consumers messages and errors - in background, so we can attempt graceful shutdown
 	// sends instance events to the (above) instance event handler
@@ -756,7 +758,7 @@ func main() {
 		func() {
 			// Shutdown ObservationsInsertedEventConsumer
 			var err error
-			if err = observationsInsertedEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			if err = observationsInsertedEventConsumer.StopAndWait(); err != nil {
 				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.ObservationsInsertedTopic})
 			} else {
 				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.ObservationsInsertedTopic})
@@ -770,7 +772,7 @@ func main() {
 		func() {
 			// Shutdown NewInstanceEventConsumer and graphDB
 			var err error
-			if err = newInstanceEventConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			if err = newInstanceEventConsumer.StopAndWait(); err != nil {
 				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.NewInstanceTopic})
 			} else {
 				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.NewInstanceTopic})
@@ -790,7 +792,7 @@ func main() {
 		func() {
 			// Shutdown hierarchyBuiltConsumer
 			var err error
-			if err = hierarchyBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			if err = hierarchyBuiltConsumer.StopAndWait(); err != nil {
 				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.HierarchyBuiltTopic})
 			} else {
 				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.HierarchyBuiltTopic})
@@ -804,7 +806,7 @@ func main() {
 		func() {
 			// Shutdown SearchBuiltConsumer
 			var err error
-			if err = searchBuiltConsumer.StopListeningToConsumer(shutdownContext); err != nil {
+			if err = searchBuiltConsumer.StopAndWait(); err != nil {
 				log.Error(ctx, "bad listen stop", err, log.Data{"topic": cfg.SearchBuiltTopic})
 			} else {
 				log.Info(ctx, "listen stopped", log.Data{"topic": cfg.SearchBuiltTopic})

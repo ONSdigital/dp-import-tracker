@@ -56,7 +56,7 @@ func NewConfig() (*Config, error) {
 		SearchBuiltConsumerGroup:          "dp-import-tracker",
 		DataImportCompleteTopic:           "data-import-complete",
 		KafkaAddr:                         []string{"localhost:9092", "localhost:9093", "localhost:9094"},
-		KafkaVersion:                      "1.0.2",
+		KafkaVersion:                      "3.8.0",
 		KafkaOffsetOldest:                 true,
 		ImportAPIAddr:                     "http://localhost:21800",
 		DatasetAPIAddr:                    "http://localhost:22000",
