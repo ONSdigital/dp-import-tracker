@@ -1,6 +1,6 @@
 module github.com/ONSdigital/dp-import-tracker
 
-go 1.24.0
+go 1.27.0
 
 require (
 	github.com/ONSdigital/dp-api-clients-go/v2 v2.252.0
@@ -10,14 +10,9 @@ require (
 	github.com/ONSdigital/dp-kafka/v2 v2.8.0
 	github.com/ONSdigital/dp-net/v2 v2.11.1
 	github.com/ONSdigital/log.go/v2 v2.4.1
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/smartystreets/goconvey v1.8.0
-	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/net v0.46.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
 )
 
 require (
@@ -32,9 +27,10 @@ require (
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-avro/avro v0.0.0-20171219232920-444163702c11 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gopherjs/gopherjs v1.17.2 // indirect
-	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
@@ -46,6 +42,7 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/justinas/alice v1.2.0 // indirect
+	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
@@ -54,4 +51,7 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/smartystreets/assertions v1.13.1 // indirect
 	github.com/stretchr/testify v1.8.4 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/net v0.46.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
 )
